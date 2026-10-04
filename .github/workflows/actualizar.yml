@@ -6,6 +6,9 @@ on:
   schedule:
     - cron: "*/10 * * * *"
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ["nube/**", ".github/workflows/actualizar.yml"]
 
 concurrency:
   group: actualizar
