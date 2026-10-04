@@ -23,7 +23,7 @@ jobs:
           python-version: "3.12"
       - uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "22"
       - name: Configurar el almacen privado
         run: |
           KV_ID=$(python -c "import sys; sys.path.insert(0, 'nube'); import kv; print(kv.id_almacen())")
