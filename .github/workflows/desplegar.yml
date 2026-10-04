@@ -1,0 +1,42 @@
+# Publica la pagina en Cloudflare Pages cuando cambia el diseno (carpetas sitio/ o functions/).
+# Los datos no se publican aqui: la pagina los lee del almacen privado a traves de functions/.
+name: Publicar pagina
+
+on:
+  push:
+    branches: [main]
+    paths: ["sitio/**", "functions/**", ".github/workflows/desplegar.yml"]
+  workflow_dispatch:
+
+jobs:
+  publicar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      PROYECTO: visualizador-lluvias-cbdmq
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Configurar el almacen privado
+        run: |
+          KV_ID=$(python -c "import sys; sys.path.insert(0, 'nube'); import kv; print(kv.id_almacen())")
+          cat > wrangler.toml <<EOF
+          name = "$PROYECTO"
+          pages_build_output_dir = "sitio"
+          compatibility_date = "2025-01-01"
+
+          [[kv_namespaces]]
+          binding = "LLUVIAS"
+          id = "$KV_ID"
+          EOF
+      - name: Crear el proyecto (solo la primera vez)
+        run: npx --yes wrangler@4 pages project create "$PROYECTO" --production-branch=main || true
+      - name: Publicar
+        run: npx --yes wrangler@4 pages deploy --project-name "$PROYECTO" --branch main

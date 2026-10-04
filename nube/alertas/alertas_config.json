@@ -1,0 +1,12 @@
+{
+  "aviso_lluvia_1h_mm": 2,
+  "alerta_lluvia_1h_mm": [10, 20, 30],
+  "crecida_promedio_microcuenca_mm": {
+    "Vigilancia": {"3h": 10, "24h": 25},
+    "Posible crecida": {"3h": 20, "24h": 40},
+    "Alta probabilidad de crecida": {"3h": 30, "24h": 60}
+  },
+  "repetir_aviso_cada_horas": 3,
+  "dato_maximo_atraso_min": 90,
+  "enviar_mensajes": true
+}

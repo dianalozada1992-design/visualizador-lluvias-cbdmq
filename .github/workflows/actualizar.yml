@@ -1,0 +1,32 @@
+# Cada 10 minutos: estaciones de lluvia (CBDMQ y EPMAPS), rios, pronostico y alertas por Telegram.
+# Los datos quedan en el almacen privado de Cloudflare y la pagina los muestra.
+name: Actualizar datos y alertas
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: actualizar
+  cancel-in-progress: false
+
+jobs:
+  actualizar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      TZ: America/Guayaquil
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      LICOR_TOKEN: ${{ secrets.LICOR_TOKEN }}
+      TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: nube/requirements.txt
+      - run: pip install -r nube/requirements.txt
+      - run: python nube/correr_actualizacion.py

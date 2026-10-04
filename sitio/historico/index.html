@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="robots" content="noindex, nofollow">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Visualizador de lluvias - CBDMQ</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<link rel="stylesheet" href="../estilo.css?v=20261004c">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="../datos/capas.js"></script>
+<script src="datos/historico.js"></script>
+<script src="datos/diario.js"></script>
+</head>
+<body>
+<header class="cabecera">
+  <div class="titulo">
+    <div class="logo">CBDMQ</div>
+    <div>
+      <h1>Visualizador de lluvias, ríos y emergencias</h1>
+      <p>Distrito Metropolitano de Quito · Dirección de Gestión de Riesgos</p>
+    </div>
+  </div>
+  <nav class="pestanas">
+    <a class="pestana" href="../">Monitoreo y pronóstico</a>
+    <button class="pestana activa">Histórico: lluvias y emergencias</button>
+  </nav>
+  <div class="estado">
+    <span id="actualizado">Datos históricos 2018 – 2026</span>
+    <span class="autora">Elaborado por: Diana Lozada Ramos</span>
+  </div>
+</header>
+
+<!-- ===================== PAGINA 2: HISTORICO ===================== -->
+<main id="historico" class="pagina activa">
+  <div class="filtros">
+    <label>Desde <input type="date" id="f-desde"></label>
+    <label>Hasta <input type="date" id="f-hasta"></label>
+    <div class="rapidos">
+      <button data-r="dia">Solo un día</button>
+      <button data-r="semana">Última semana</button>
+      <button data-r="mes">Último mes</button>
+      <button data-r="anio">Último año</button>
+      <button data-r="todo">Todo (2018–2026)</button>
+    </div>
+    <label>Días con más emergencias <select id="f-criticos"></select></label>
+    <label>Brigada distrital <select id="f-brigada"></select></label>
+    <label>Parroquia <select id="f-parroquia"></select></label>
+  </div>
+  <p class="sub" id="periodo-nota"></p>
+  <section class="cifras" id="cifras-historico"></section>
+  <div class="cuerpo">
+    <div class="columna-mapa">
+      <div class="barra-mapa">
+        <div class="grupo">
+          <span class="etiqueta">Colorear parroquias por</span>
+          <div class="segmentado" id="sel-indicador">
+            <button data-i="emergencias" class="activo">Emergencias</button>
+            <button data-i="lluvia">Lluvia en su estación</button>
+            <button data-i="maxh">Máx. en 1 hora</button>
+          </div>
+        </div>
+        <div class="grupo capas">
+          <label><input type="checkbox" id="ver-est-h" checked> Estaciones de lluvia</label>
+          <label><input type="checkbox" id="ver-eventos" checked> Emergencias</label>
+        </div>
+      </div>
+      <div id="mapa-h" class="mapa"></div>
+      <div class="leyendas"><div class="leyenda" id="leyenda-h"></div><div class="leyenda" id="leyenda-h2"></div></div>
+    </div>
+    <aside class="panel">
+      <div class="tarjeta">
+        <h2 id="titulo-serie">Lluvia y emergencias en el período</h2>
+        <p class="sub" id="sub-serie"></p>
+        <div class="grafico"><canvas id="g-serie"></canvas></div>
+      </div>
+      <div class="tarjeta">
+        <h2>¿Con qué lluvia ocurrieron las emergencias?</h2>
+        <p class="sub">Días del período según la lluvia máxima en una hora en la estación de cada parroquia (barras) y % de esos días con emergencias (línea).</p>
+        <div class="grafico"><canvas id="g-intensidad"></canvas></div>
+      </div>
+    </aside>
+  </div>
+  <div class="dos-columnas">
+    <section class="tarjeta">
+      <h2>Parroquias: lluvia y emergencias del período</h2>
+      <p class="sub">Lluvia medida en la estación de referencia de cada parroquia. Haga clic en una fila para verla. Clic en los títulos para ordenar.</p>
+      <div class="tabla-contenedor"><table id="tabla-h"></table></div>
+    </section>
+    <section class="tarjeta">
+      <h2 id="titulo-lista">Emergencias del período</h2>
+      <p class="sub">Con la lluvia de ese día en la estación de referencia de la parroquia.</p>
+      <div class="tabla-contenedor"><table id="tabla-eventos"></table></div>
+      <h2 class="separado">Barrios con más emergencias en el período</h2>
+      <div id="barrios" class="lista"></div>
+    </section>
+  </div>
+</main>
+
+<footer class="pie">
+  Fuentes: estaciones CBDMQ (LI-COR), EPMAPS (paraMH2O y telemetría), REMMAQ (Secretaría de Ambiente), modelos ICON, Météo-France y GFS
+  corregidos con las estaciones del DMQ, base de emergencias del CBDMQ 2018–2026 y ríos de OpenStreetMap.
+  · Elaborado por: Diana Lozada Ramos
+</footer>
+<script src="../comun.js?v=20261004c"></script>
+<script src="../app_historico.js?v=20261004c"></script>
+</body>
+</html>

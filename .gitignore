@@ -1,0 +1,17 @@
+# Nunca subir claves ni datos internos (van en los secretos de GitHub y en el almacen privado de Cloudflare)
+Api.txt
+*token*
+herramientas/cloudflare_local.json
+nube/alertas/alertas_contactos.json
+nube/alertas/estado_alertas.json
+nube/alertas/registro_alertas.log
+nube/visualizador/datos/
+nube/pronostico/geo_pronostico.json
+nube/pronostico/boletines/
+sitio/datos/
+sitio/historico/datos/
+wrangler.toml
+__pycache__/
+*.pyc
+.wrangler/
+node_modules/
