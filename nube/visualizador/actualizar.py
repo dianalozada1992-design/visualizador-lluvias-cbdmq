@@ -98,17 +98,43 @@ def telemetria(capas, t):
             if "Hidro" not in e["tipo"]:
                 lluvia.append({**base, "sin_datos": True})
             continue
+        clima = {}
         for k, v in data.items():
             nombre_var = v.get("var_nombre", "")
+            # humedad, temperatura y radiacion: para las condiciones propicias para lluvia
+            for clave_c, inicio in (("hr", "humedad relativa"), ("t", "temperatura ambiente"), ("rad", "radiaci")):
+                if nombre_var.lower().startswith(inicio):
+                    clima[clave_c] = serie(v)
             if nombre_var.lower().startswith("precip"):
                 r = resumen_lluvia(serie(v), t)
                 lluvia.append({**base, **(r or {"sin_datos": True})})
+                if r:
+                    lluvia[-1]["_clima"] = clima
             elif nombre_var.lower().startswith(("caudal", "nivel")):
                 var = "caudal" if nombre_var.lower().startswith("caudal") else "nivel"
                 r = resumen_rio(serie(v), t, e.get("umbral_" + var))
                 if r:
                     rios.append({**base, "variable": nombre_var, "unidad": v.get("var_unidad", ""), **r})
         time.sleep(0.3)
+    # condiciones propicias para lluvia en las estaciones climatologicas (humedad + temperatura)
+    con_clima = [x for x in lluvia if x.get("_clima", {}).get("hr") is not None and x["_clima"].get("t") is not None]
+    try:
+        sys.path.insert(0, os.path.join(BASE, "alertas"))
+        import condiciones
+        if con_clima and condiciones.conf_paramh2o():
+            modelos = condiciones.modelo_corto(con_clima, t, clave="codigo", desfase_h=1)
+            for x in con_clima:
+                c = x["_clima"]
+                try:
+                    x["condiciones"] = condiciones.evaluar_horario(x["codigo"], c["hr"], c["t"], c.get("rad"),
+                                                                   x.get("lluvia_1h") if x.get("retraso_min", 999) <= 60 else None,
+                                                                   modelos.get(x["codigo"]), t)
+                except Exception:
+                    pass
+    except Exception as e:
+        print("Sin condiciones de lluvia para paraMH2O:", str(e)[:100], flush=True)
+    for x in lluvia:
+        x.pop("_clima", None)
     return lluvia, rios
 
 

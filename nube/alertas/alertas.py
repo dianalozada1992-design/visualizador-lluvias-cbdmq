@@ -96,7 +96,8 @@ def evaluar(salida, capas, cfg, cuencas):
         # condiciones propicias para lluvia en las 2 horas siguientes (solo estaciones CBDMQ, ver condiciones.py)
         cond = e.get("condiciones") or {}
         if cond.get("nivel"):
-            veces = "4 de cada 10" if cond["nivel"] == 2 else "1 de cada 4"
+            p = cond.get("prob_historica") or (0.4 if cond["nivel"] == 2 else 0.25)
+            veces = f"{max(1, round(p * 10))} de cada 10"
             senales = [f"humedad {cond['humedad']} %", f"faltan {fmt(cond['dif_rocio'])} °C para que el aire se sature"]
             if cond.get("caida_sol", 0) >= 0.1:
                 senales.append("el sol se nubló de golpe")
