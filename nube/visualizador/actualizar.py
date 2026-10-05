@@ -173,15 +173,15 @@ def cbdmq(capas, t):
         try:
             q = urllib.parse.urlencode({"loggers": sn, "start_date_time": ini.strftime("%Y-%m-%d %H:%M:%S"), "end_date_time": fin.strftime("%Y-%m-%d %H:%M:%S")})
             # la API rechaza consultas si hay otras al mismo tiempo (por ejemplo el boletin diario): se reintenta
-            for intento in range(4):
+            for intento in range(3):
                 try:
                     d = json.load(urllib.request.urlopen(urllib.request.Request("https://api.licor.cloud/v1/data?" + q,
-                                                                                headers={"Authorization": "Bearer " + tok}), timeout=120))
+                                                                                headers={"Authorization": "Bearer " + tok}), timeout=40))
                     break
                 except Exception:
-                    if intento == 3:
+                    if intento == 2:
                         raise
-                    time.sleep(20 * (intento + 1))
+                    time.sleep(10 * (intento + 1))
             s = pd.Series({pd.Timestamp(x["timestamp"].replace("Z", "")) - pd.Timedelta(hours=5): x["value"]
                            for x in d["data"] if x["sensor_measurement_type"] == "Rain"}).sort_index()
             temp = [x["value"] for x in d["data"] if x["sensor_measurement_type"] == "Temperature"]
@@ -242,6 +242,29 @@ def pronostico():
             "modelos": [calib[m]["nombre"] for m in calib["conjunto"]["modelos"]]}
 
 
+# tiempo maximo por fuente: si una no responde, se usan sus datos anteriores y la actualizacion termina igual
+LIMITE_S = {"cbdmq": 240, "telemetria": 240, "pronostico": 300}
+
+
+def con_limite(fn, segundos):
+    import threading
+    res = {}
+
+    def correr():
+        try:
+            res["ok"] = fn()
+        except Exception as e:
+            res["error"] = e
+    hilo = threading.Thread(target=correr, daemon=True)
+    hilo.start()
+    hilo.join(segundos)
+    if hilo.is_alive():
+        raise TimeoutError(f"no respondió en {segundos // 60} minutos; se usan los datos anteriores")
+    if "error" in res:
+        raise res["error"]
+    return res["ok"]
+
+
 def main():
     t = ahora()
     capas = json.loads(open(os.path.join(CARPETA, "datos", "capas.js"), encoding="utf8").read().split("=", 1)[1].rstrip(";\n"))
@@ -258,7 +281,7 @@ def main():
             salida["pronostico"], salida["pronostico_calculado"] = previo["pronostico"], previo["pronostico_calculado"]
             continue
         try:
-            r = fn()
+            r = con_limite(fn, LIMITE_S[nombre])
             if nombre == "telemetria":
                 salida["lluvia_epmaps"], salida["rios"] = r
             else:
