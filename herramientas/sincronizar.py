@@ -24,6 +24,8 @@ CODIGO = {
     "alertas/condiciones.py": "nube/alertas/condiciones.py",
     "alertas/condiciones_lluvia.json": "nube/alertas/condiciones_lluvia.json",
     "alertas/condiciones_paramh2o.json": "nube/alertas/condiciones_paramh2o.json",
+    "boletin/boletin_diario.py": "nube/boletin/boletin_diario.py",
+    "boletin/normales_lluvia.json": "nube/boletin/normales_lluvia.json",
     "visualizador/estilo.css": "sitio/estilo.css",
     "visualizador/comun.js": "sitio/comun.js",
     "visualizador/app.js": "sitio/app.js",
@@ -57,6 +59,8 @@ def paginas():
     m = quitar(m, r'\s*<script src="datos/diario\.js"></script>')
     m = quitar(m, r'\s*<script src="app_historico\.js[^"]*"></script>')
     m = m.replace(boton_h, '<a class="pestana" href="historico/">Histórico: lluvias y emergencias</a>')
+    enlace = '<a class="enlace-boletin" href="{}boletin/hoy" target="_blank">📄 Boletín de hoy (PDF)</a>\n    '
+    m = m.replace('<span id="sesion"', enlace.format("") + '<span id="sesion"', 1)
     os.makedirs(os.path.join(RAIZ, "sitio", "historico"), exist_ok=True)
     open(os.path.join(RAIZ, "sitio", "index.html"), "w", encoding="utf8").write(m)
     # ---- nivel 2: historico (en /historico/, protegido aparte)
@@ -68,6 +72,7 @@ def paginas():
     h = h.replace('href="estilo.css', 'href="../estilo.css').replace('src="comun.js', 'src="../comun.js')
     h = h.replace('src="app_historico.js', 'src="../app_historico.js').replace('src="datos/capas.js"', 'src="../datos/capas.js"')
     h = h.replace('<span id="actualizado">Cargando datos…</span>', '<span id="actualizado">Datos históricos 2018 – 2026</span>')
+    h = h.replace('<span id="sesion"', enlace.format("../") + '<span id="sesion"', 1)
     open(os.path.join(RAIZ, "sitio", "historico", "index.html"), "w", encoding="utf8").write(h)
     print("paginas: sitio/index.html (nivel 1) y sitio/historico/index.html (nivel 2)")
 

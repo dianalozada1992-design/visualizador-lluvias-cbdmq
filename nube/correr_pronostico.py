@@ -26,6 +26,9 @@ def main():
         sys.exit("Falta subir geo_pronostico al almacen (herramientas/subir_datos.py)")
     if not kv.bajar_a_archivo("destinos", os.path.join(ALERTAS, "alertas_contactos.json")):
         json.dump({"destinos": []}, open(os.path.join(ALERTAS, "alertas_contactos.json"), "w", encoding="utf8"))
+    # datos para el boletin de lluvias y emergencias
+    kv.bajar_a_archivo("emergencias", os.path.join(NUBE, "boletin", "emergencias.json"))
+    kv.bajar_a_archivo("diario", os.path.join(NUBE, "boletin", "diario.js"))
     sys.path.insert(0, os.path.join(NUBE, "pronostico"))
     import pronostico_diario
     pronostico_diario.main()   # al final envia el boletin a Telegram (alertas/enviar_pronostico.py)
@@ -36,6 +39,12 @@ def main():
         print("Boletín de hoy anotado en el almacén")
     else:
         sys.exit("No se generó el boletín de hoy")
+    # el PDF de lluvias y emergencias queda disponible en el visualizador (boletin/hoy)
+    pdf = os.path.join(NUBE, "boletin", "salidas", f"boletin_lluvias_emergencias_{hoy}.pdf")
+    if os.path.exists(pdf):
+        kv.guardar_bytes("boletin_pdf", open(pdf, "rb").read(), "application/pdf")
+        kv.guardar("boletin_pdf_fecha", hoy)
+        print("Boletín de lluvias y emergencias guardado para el visualizador")
 
 
 if __name__ == "__main__":

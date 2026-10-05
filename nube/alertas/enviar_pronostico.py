@@ -55,6 +55,9 @@ def archivos_del_dia(fecha):
         if k not in por_dia or os.path.getmtime(p) > os.path.getmtime(por_dia[k]):
             por_dia[k] = p
     pdfs = sorted(glob.glob(os.path.join(BOLETINES, f"pronostico_3_dias_emitido_{fecha:%Y-%m-%d}*.pdf")), key=os.path.getmtime)
+    completo = os.path.join(os.path.dirname(CARPETA), "boletin", "salidas", f"boletin_lluvias_emergencias_{fecha:%Y-%m-%d}.pdf")
+    if os.path.exists(completo):
+        pdfs.append(completo)
     return [por_dia[k] for k in sorted(por_dia)], (pdfs[-1] if pdfs else None)
 
 
@@ -109,7 +112,8 @@ def enviar(fecha=None, prueba=False):
             else:
                 alertas.enviar_telegram(token, d["chat_id"], texto + "\n\n(No se encontraron las imágenes del boletín de hoy)")
             if pdf:
-                llamar(token, "sendDocument", {"chat_id": d["chat_id"], "caption": "Boletín completo en PDF"},
+                titulo = "Boletín de lluvias y emergencias (PDF)" if "lluvias_emergencias" in pdf else "Boletín completo en PDF"
+                llamar(token, "sendDocument", {"chat_id": d["chat_id"], "caption": titulo},
                        {"document": (os.path.basename(pdf), open(pdf, "rb").read(), "application/pdf")})
             enviados.append(d["nombre"])
             alertas.anotar(f"Pronóstico enviado a {d['nombre']}")

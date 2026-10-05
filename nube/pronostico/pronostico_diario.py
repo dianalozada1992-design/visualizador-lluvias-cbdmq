@@ -319,6 +319,13 @@ def main():
         print("Boletín visual:", bv.generar(h, pts, diss, previa, base, txt, NOMBRES))
     except Exception as e:
         print("No se pudo generar el boletín visual:", e)
+    # boletin de lluvias y emergencias (PDF tipo EPMAPS), se envia junto con el pronostico
+    try:
+        sys.path.insert(0, os.path.join(os.path.dirname(CARPETA), "boletin"))
+        import boletin_diario
+        boletin_diario.generar()
+    except Exception as e:
+        print("No se pudo generar el boletín de lluvias y emergencias:", e)
     # envio del boletin al grupo de Telegram
     try:
         sys.path.insert(0, os.path.join(os.path.dirname(CARPETA), "alertas"))

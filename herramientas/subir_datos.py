@@ -4,6 +4,7 @@
   historico       emergencias por lluvia (pagina de nivel 2)
   diario          lluvia diaria 2018-2026 de todas las estaciones (pagina de nivel 2)
   geo_pronostico  puntos y formas de parroquias y brigadas para el pronostico
+  emergencias     emergencias por lluvia unidas para el boletin diario (preparar_emergencias.py)
   destinos        personas y grupos de Telegram que reciben alertas (sin el token del bot)
 
 Correr cuando cambien esos datos o cuando se registre alguien nuevo en Telegram:
@@ -24,6 +25,7 @@ ARCHIVOS = {
     "historico": os.path.join(ORIGEN, "visualizador", "datos", "historico.js"),
     "diario": os.path.join(ORIGEN, "visualizador", "datos", "diario.js"),
     "geo_pronostico": os.path.join(ORIGEN, "pronostico", "geo_pronostico.json"),
+    "emergencias": os.path.join(ORIGEN, "boletin", "emergencias.json"),
 }
 
 

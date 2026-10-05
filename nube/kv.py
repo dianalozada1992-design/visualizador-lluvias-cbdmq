@@ -67,6 +67,10 @@ def guardar(clave, texto):
     _pedir("PUT", _ns() + urllib.parse.quote(clave), texto.encode("utf8"), "text/plain; charset=utf-8")
 
 
+def guardar_bytes(clave, datos, tipo="application/octet-stream"):
+    _pedir("PUT", _ns() + urllib.parse.quote(clave), datos, tipo)
+
+
 def bajar_a_archivo(clave, ruta):
     texto = leer(clave)
     if texto is None:
