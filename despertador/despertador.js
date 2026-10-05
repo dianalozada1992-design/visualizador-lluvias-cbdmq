@@ -6,7 +6,19 @@
 // Secreto necesario en el Worker: GITHUB_TOKEN (token de GitHub con permiso "Actions: Read and write" en el repositorio).
 const REPO = "dianalozada1992-design/visualizador-lluvias-cbdmq";
 
+async function ocupado(env, flujo) {
+  // si ya hay una corrida en curso o en espera, no se lanza otra (evita cancelaciones y correos de GitHub)
+  for (const estado of ["in_progress", "queued"]) {
+    const r = await fetch(`https://api.github.com/repos/${REPO}/actions/workflows/${flujo}/runs?status=${estado}&per_page=1`, {
+      headers: { Authorization: `Bearer ${env.GITHUB_TOKEN}`, Accept: "application/vnd.github+json", "User-Agent": "cbdmq-despertador" },
+    });
+    if (r.ok && (await r.json()).total_count > 0) return true;
+  }
+  return false;
+}
+
 async function lanzar(env, flujo) {
+  if (flujo === "actualizar.yml" && (await ocupado(env, flujo))) return;
   const r = await fetch(`https://api.github.com/repos/${REPO}/actions/workflows/${flujo}/dispatches`, {
     method: "POST",
     headers: {
