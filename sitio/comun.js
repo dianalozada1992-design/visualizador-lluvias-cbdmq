@@ -31,3 +31,18 @@ function leyenda(id, titulo, clases, circulo) {
   document.getElementById(id).innerHTML = `<b>${titulo}</b>` + clases.map(c => `<span class="caja"><i class="${circulo ? "circulo" : ""}" style="background:${c[1]}"></i>${c[2]}</span>`).join("");
 }
 
+
+// ---------------------------------------------------------------- sesion (solo en la version web con registro)
+// Cloudflare Access informa quien entro en /cdn-cgi/access/get-identity y cierra la sesion en /cdn-cgi/access/logout
+(function sesion() {
+  if (location.protocol !== "https:") return;  // en la computadora (sin registro) no se muestra
+  fetch("/cdn-cgi/access/get-identity", { credentials: "include" })
+    .then(r => r.ok ? r.json() : null)
+    .then(u => {
+      const el = document.getElementById("sesion");
+      if (!el) return;
+      el.innerHTML = `${u && u.email ? u.email + " · " : ""}<a href="/cdn-cgi/access/logout">Cerrar sesión</a>`;
+      el.hidden = false;
+    })
+    .catch(() => {});
+})();
