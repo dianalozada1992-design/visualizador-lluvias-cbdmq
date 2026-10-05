@@ -41,8 +41,26 @@ def consulta_telemetria(op, tok, est_id, inicio, fin):
                                     "hora_inicio": inicio.strftime("%H:%M"), "fin": fin.strftime("%Y-%m-%d"), "hora_fin": fin.strftime("%H:%M")}).encode()
     req = urllib.request.Request(B + "/ajax/telemetria/consulta/", data=datos,
                                  headers={"Referer": B + "/telemetria/visualizar/", "X-Requested-With": "XMLHttpRequest", "X-CSRFToken": tok})
-    j = json.loads(urllib.request.urlopen(req, timeout=90).read().decode()) if False else json.loads(op.open(req, timeout=90).read().decode())
+    j = json.loads(op.open(req, timeout=30).read().decode())
     return j.get("data") if j.get("response") else None
+
+
+def bajar_telemetria(estaciones, ini, fin):
+    """Consulta varias estaciones a la vez (antes, una por una podia tardar mas de 10 minutos si alguna no respondia).
+    Devuelve {id de estacion: datos o None}."""
+    from concurrent.futures import ThreadPoolExecutor
+    op, tok = sesion_telemetria()
+
+    def una(e):
+        for intento in range(2):
+            try:
+                return e["id"], consulta_telemetria(op, tok, e["id"], ini, fin)
+            except Exception:
+                time.sleep(3)
+        return e["id"], None
+
+    with ThreadPoolExecutor(max_workers=6) as ex:
+        return dict(ex.map(una, estaciones))
 
 
 def serie(v):
@@ -81,19 +99,12 @@ def resumen_rio(s, t, umbral):
 
 
 def telemetria(capas, t):
-    op, tok = sesion_telemetria()
     ini = (t - dt.timedelta(hours=30))
     lluvia, rios = [], []
+    todos = bajar_telemetria(capas["telemetria"], ini, t)
     for e in capas["telemetria"]:
-        try:
-            data = consulta_telemetria(op, tok, e["id"], ini, t)
-        except Exception:
-            try:
-                op, tok = sesion_telemetria()
-                data = consulta_telemetria(op, tok, e["id"], ini, t)
-            except Exception:
-                data = None
-        base = {"codigo": e["codigo"], "nombre": e["nombre"], "tipo": e["tipo"], "lat": e["lat"], "lon": e["lon"], "red": "EPMAPS"}
+        data = todos.get(e["id"])
+        base ={"codigo": e["codigo"], "nombre": e["nombre"], "tipo": e["tipo"], "lat": e["lat"], "lon": e["lon"], "red": "EPMAPS"}
         if not data:
             if "Hidro" not in e["tipo"]:
                 lluvia.append({**base, "sin_datos": True})
@@ -115,7 +126,6 @@ def telemetria(capas, t):
                 r = resumen_rio(serie(v), t, e.get("umbral_" + var))
                 if r:
                     rios.append({**base, "variable": nombre_var, "unidad": v.get("var_unidad", ""), **r})
-        time.sleep(0.3)
     # condiciones propicias para lluvia en las estaciones climatologicas (humedad + temperatura)
     con_clima = [x for x in lluvia if x.get("_clima", {}).get("hr") is not None and x["_clima"].get("t") is not None]
     try:
