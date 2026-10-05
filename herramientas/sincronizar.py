@@ -21,6 +21,8 @@ CODIGO = {
     "alertas/enviar_pronostico.py": "nube/alertas/enviar_pronostico.py",
     "alertas/alertas_config.json": "nube/alertas/alertas_config.json",
     "alertas/cuencas.json": "nube/alertas/cuencas.json",
+    "alertas/condiciones.py": "nube/alertas/condiciones.py",
+    "alertas/condiciones_lluvia.json": "nube/alertas/condiciones_lluvia.json",
     "visualizador/estilo.css": "sitio/estilo.css",
     "visualizador/comun.js": "sitio/comun.js",
     "visualizador/app.js": "sitio/app.js",

@@ -93,6 +93,18 @@ def evaluar(salida, capas, cfg, cuencas):
         elif mm >= cfg["aviso_lluvia_1h_mm"]:
             activas.append({"tipo": "aviso", "clave": "aviso:" + nombre, "nivel": 1, "estacion": nombre, "lugar": lugar,
                             "mm_1h": mm, "texto": f"{nombre} ({lugar}): {fmt(mm)} mm"})
+        # condiciones propicias para lluvia en las 2 horas siguientes (solo estaciones CBDMQ, ver condiciones.py)
+        cond = e.get("condiciones") or {}
+        if cond.get("nivel"):
+            veces = "4 de cada 10" if cond["nivel"] == 2 else "1 de cada 4"
+            senales = [f"humedad {cond['humedad']} %", f"faltan {fmt(cond['dif_rocio'])} °C para que el aire se sature"]
+            if cond.get("caida_sol", 0) >= 0.1:
+                senales.append("el sol se nubló de golpe")
+            senales.append(f"el modelo anuncia {fmt(cond['mm_modelo_2h'])} mm")
+            activas.append({"tipo": "condiciones", "clave": "condiciones:" + nombre, "nivel": cond["nivel"], "estacion": nombre,
+                            "lugar": lugar, "mm_1h": 0,
+                            "texto": (f"{'MUY PROPICIAS' if cond['nivel'] == 2 else 'Propicias'} - zona de {nombre} ({lugar}) y alrededores "
+                                      f"(15 km): {', '.join(senales)}. En condiciones así llovió {veces} veces.")})
     # riesgo de crecida por microcuenca
     niveles = list(cfg["crecida_promedio_microcuenca_mm"].items())
     for c in cuencas:
@@ -163,6 +175,9 @@ def armar_mensaje(items, ahora, cfg):
     cr = sorted([i for i in items if i["tipo"] == "crecida"], key=lambda i: -i["nivel"])
     if cr:
         partes.append("🌊 *RIESGO DE CRECIDA DE RÍOS*\n" + "\n".join("• " + i["texto"] for i in cr))
+    co = sorted([i for i in items if i["tipo"] == "condiciones"], key=lambda i: -i["nivel"])
+    if co:
+        partes.append("🌥️ *Condiciones propicias para lluvia en las próximas 2 horas*\n" + "\n".join("• " + i["texto"] for i in co))
     av = sorted([i for i in items if i["tipo"] == "aviso"], key=lambda i: -i["mm_1h"])
     if av:
         txt = f"🟢 *Aviso: está lloviendo* ({cfg['aviso_lluvia_1h_mm']} mm o más en 1 hora)\n" + "\n".join("• " + i["texto"] for i in av[:15])
@@ -253,6 +268,8 @@ def procesar(salida, capas, prueba=False):
     activas = evaluar(salida, capas, cfg, cuencas)
     estado = leer("estado_alertas.json", {})
     items, nuevo_estado = decidir(activas, estado, cfg, ahora)
+    # por Telegram solo van las condiciones "muy propicias"; las "propicias" se ven en el visualizador
+    items = [i for i in items if not (i["tipo"] == "condiciones" and i["nivel"] < cfg.get("condiciones_nivel_minimo_telegram", 2))]
     resumen = {"hora": ahora.strftime("%Y-%m-%d %H:%M"), "activas": activas, "enviadas": [], "error_envio": None}
     if items:
         resumen["mensaje"] = armar_mensaje(items, ahora, cfg)
@@ -260,7 +277,7 @@ def procesar(salida, capas, prueba=False):
         if not destinos:
             anotar(f"{len(items)} avisos nuevos, pero no hay destinos activos en alertas_contactos.json")
         for c in destinos:
-            mios = [i for i in items if i["tipo"] in c.get("recibe", ["aviso", "alerta", "crecida"])]
+            mios = [i for i in items if i["tipo"] in c.get("recibe", ["aviso", "alerta", "crecida", "condiciones"])]
             if not mios:
                 continue
             texto = armar_mensaje(mios, ahora, cfg)

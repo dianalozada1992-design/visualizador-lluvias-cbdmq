@@ -123,6 +123,14 @@ def cbdmq(capas, t):
     ini = fin - dt.timedelta(hours=30)
     out = []
     coords = {c["nombre"]: c for c in capas["cbdmq"]}
+    # condiciones propicias para lluvia: hace falta lo que anuncia el modelo para las 2 horas siguientes
+    try:
+        sys.path.insert(0, os.path.join(BASE, "alertas"))
+        import condiciones
+        modelos = condiciones.modelo_corto([c for c in capas["cbdmq"] if c["nombre"] in CBDMQ_SN], t)
+    except Exception as e:
+        condiciones, modelos = None, {}
+        print("Sin modelo para condiciones de lluvia:", str(e)[:100], flush=True)
     for nombre, sn in CBDMQ_SN.items():
         c = coords.get(nombre, {})
         base = {"codigo": "CBDMQ", "nombre": nombre, "tipo": "Meteorológica CBDMQ", "lat": c.get("lat"), "lon": c.get("lon"), "red": "CBDMQ"}
@@ -142,7 +150,14 @@ def cbdmq(capas, t):
                            for x in d["data"] if x["sensor_measurement_type"] == "Rain"}).sort_index()
             temp = [x["value"] for x in d["data"] if x["sensor_measurement_type"] == "Temperature"]
             r = resumen_lluvia(s, t)
-            out.append({**base, **(r or {"sin_datos": True}), "temperatura": round(temp[-1], 1) if temp else None})
+            cond = {"nivel": 0}
+            if condiciones and r:
+                try:
+                    cond = condiciones.evaluar(nombre, d["data"], r.get("lluvia_1h") if r.get("retraso_min", 999) <= 60 else None,
+                                               modelos.get(nombre), t)
+                except Exception:
+                    pass
+            out.append({**base, **(r or {"sin_datos": True}), "temperatura": round(temp[-1], 1) if temp else None, "condiciones": cond})
         except Exception:
             out.append({**base, "sin_datos": True})
     # si una estacion fallo, se usa su ultimo dato bueno (marcado como anterior)

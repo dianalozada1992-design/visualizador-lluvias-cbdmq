@@ -124,3 +124,4 @@ a.pestana { text-decoration: none; display: inline-block; }
 .sesion { margin-top: 4px; color: #dbe7f5; }
 .sesion a { color: #fff; font-weight: 700; border: 1px solid #6f8fbf; border-radius: 14px; padding: 2px 10px; text-decoration: none; }
 .sesion a:hover { background: #fff; color: var(--azul); }
+.fila.alerta-condiciones { background: #eef6f3; border-left: 4px solid #5bbfa8; }
