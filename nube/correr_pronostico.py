@@ -16,6 +16,11 @@ ALERTAS = os.path.join(NUBE, "alertas")
 
 
 def main():
+    # si el boletin de hoy ya se hizo (por otro camino), no se repite
+    b = kv.leer("boletin_hoy")
+    if b and dt.date.today().strftime("%Y-%m-%d") in json.loads(b).get("archivo", ""):
+        print("El boletín de hoy ya se generó; no se repite.")
+        return
     kv.bajar_a_archivo("capas", os.path.join(NUBE, "visualizador", "datos", "capas.js"))
     if not kv.bajar_a_archivo("geo_pronostico", os.path.join(NUBE, "pronostico", "geo_pronostico.json")):
         sys.exit("Falta subir geo_pronostico al almacen (herramientas/subir_datos.py)")
