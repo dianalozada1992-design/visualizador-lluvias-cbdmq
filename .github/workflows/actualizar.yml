@@ -2,9 +2,8 @@
 # Los datos quedan en el almacen privado de Cloudflare y la pagina los muestra.
 name: Actualizar datos y alertas
 
+# La lanza el "despertador" de Cloudflare cada 10 minutos (los horarios propios de GitHub llegan tarde).
 on:
-  schedule:
-    - cron: "*/10 * * * *"
   workflow_dispatch:
   push:
     branches: [main]
