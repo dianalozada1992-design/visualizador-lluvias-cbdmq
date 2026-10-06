@@ -183,7 +183,9 @@ def evaluar(salida, capas, cfg, cuencas):
             vistos.add(r["nombre"])
             signo = "+" if r["cambio_6h_pct"] >= 0 else ""
             var = (r.get("variable") or "").split(" ")[0].lower()
+            parr_r, _ = ubicar(r, capas, cuencas) if r.get("lat") is not None else (None, None)
             activas.append({"tipo": "crecida", "clave": "rio:" + r["nombre"], "nivel": 3 if alto else 1, "rio": r["nombre"],
+                            "parroquia": parr_r["nombre"] if parr_r else "Fuera del DMQ",
                             "texto": (f"Estación de río {r['nombre']}: el agua está sobre el nivel de crecida" if alto else
                                       f"Estación de río {r['nombre']}: el {var} del río subió {fmt(r['cambio_6h_pct'], 0)} % en 6 horas"),
                             "detalle": f"{r['estado']} ({var} {signo}{fmt(r['cambio_6h_pct'])} % en 6 h)"})
@@ -348,6 +350,8 @@ def procesar(salida, capas, prueba=False):
     items, nuevo_estado = decidir(activas, estado, cfg, ahora)
     # por Telegram solo van las condiciones "muy propicias"; las "propicias" se ven en el visualizador
     items = [i for i in items if not (i["tipo"] == "condiciones" and i["nivel"] < cfg.get("condiciones_nivel_minimo_telegram", 2))]
+    # lo que ocurre fuera del Distrito (paramos, captaciones) solo se muestra en el visualizador, no va a Telegram
+    items = [i for i in items if i.get("parroquia") != "Fuera del DMQ"]
     resumen = {"hora": ahora.strftime("%Y-%m-%d %H:%M"), "activas": activas, "enviadas": [], "error_envio": None}
     if items:
         resumen["mensaje"] = armar_mensaje(items, ahora, cfg)
