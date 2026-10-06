@@ -210,7 +210,7 @@ def pagina_emergencias_mes(pdf, hoy, numero, t):
     anios = list(range(2018, hoy.year + (0 if hoy.month > t.fecha.max().month or hoy.year > t.fecha.max().year else 1)))
     por_anio = del_mes.groupby(del_mes.fecha.dt.year).size().reindex(anios, fill_value=0)
     fig = plt.figure(figsize=A4)
-    cabecera(fig, f"6. Emergencias por lluvia en {MESES[m - 1]} de años anteriores", numero, hoy)
+    cabecera(fig, f"7. Emergencias por lluvia en {MESES[m - 1]} de años anteriores", numero, hoy)
     ax = fig.add_axes([0.08, 0.68, 0.86, 0.2])
     ax.bar(por_anio.index.astype(str), por_anio.values, color=AZUL_MEDIO)
     prom = por_anio.mean()
@@ -236,7 +236,7 @@ def pagina_emergencias_anio(pdf, hoy, numero, t, meta):
     mes_ult = ult.month
     hasta = t[t.fecha.dt.month <= mes_ult]
     fig = plt.figure(figsize=A4)
-    cabecera(fig, f"7. Emergencias de enero a {MESES[mes_ult - 1]}: comparación entre años", numero, hoy)
+    cabecera(fig, f"8. Emergencias de enero a {MESES[mes_ult - 1]}: comparación entre años", numero, hoy)
     ax = fig.add_axes([0.08, 0.62, 0.86, 0.26])
     tabla = hasta.groupby([hasta.fecha.dt.year, "tipo"]).size().unstack(fill_value=0)
     abajo = np.zeros(len(tabla))
@@ -298,7 +298,7 @@ def dias_parecidos(t):
 def pagina_lluvia_emergencias(pdf, hoy, numero, t, pron):
     res, cortes, etiquetas = dias_parecidos(t)
     fig = plt.figure(figsize=A4)
-    cabecera(fig, "8. Lluvia y emergencias: ¿qué pasó en días parecidos?", numero, hoy)
+    cabecera(fig, "9. Lluvia y emergencias: ¿qué pasó en días parecidos?", numero, hoy)
     ax = fig.add_axes([0.1, 0.55, 0.82, 0.32])
     colores = ["#e3f4e6", VERDE_CLARO, "#5bbfa8", AZUL_MEDIO, AZUL]
     ax.bar(etiquetas, res.promedio.values, color=colores, edgecolor="#5d6d7e", lw=0.4)
@@ -340,7 +340,7 @@ def pagina_satelite(pdf, hoy, numero):
     if img is None:
         return False
     fig = plt.figure(figsize=A4)
-    cabecera(fig, "9. Imagen del satélite GOES (infrarrojo)", numero, hoy)
+    cabecera(fig, "10. Imagen del satélite GOES (infrarrojo)", numero, hoy)
     h, w = img.shape[:2]
     ax = fig.add_axes([0.04, 0.12, 0.92, 0.32]); ax.imshow(img); ax.axis("off"); ax.set_title("Norte de Sudamérica", loc="left", fontsize=8)
     ax2 = fig.add_axes([0.1, 0.47, 0.8, 0.42]); ax2.imshow(img[int(h * 0.3):int(h * 0.85), int(w * 0.02):int(w * 0.42)]); ax2.axis("off")
@@ -349,6 +349,72 @@ def pagina_satelite(pdf, hoy, numero):
              "(colores más intensos) suelen ser las de tormenta. Ecuador está en el lado izquierdo de la imagen.", fontsize=8.5)
     pdf.savefig(fig); plt.close(fig)
     return True
+
+
+def pct(v):
+    return "—" if v is None else f"{fmt(100 * v, 0)} %"
+
+
+def pagina_verificacion(pdf, hoy, numero):
+    """Seccion 5: indicadores de desempeno del pronostico del dia anterior frente a la precipitacion observada."""
+    import verificar_pronostico as vp
+    ayer = (hoy - dt.timedelta(days=1)).date() if isinstance(hoy, dt.datetime) else hoy - dt.timedelta(days=1)
+    v = vp.verificar(ayer)
+    if not v:
+        return None
+    fig = plt.figure(figsize=A4)
+    cabecera(fig, "5. Verificación del pronóstico del día anterior", numero, hoy)
+    fig.text(0.05, 0.895, f"Evaluación del pronóstico de precipitación para el {DIAS[ayer.weekday()]} {ayer.day} de {MESES[ayer.month - 1]} "
+             f"frente a lo registrado por {list(v['resultados'].values())[0]['ind']['estaciones']} estaciones (CBDMQ y EPMAPS).", fontsize=8.5)
+    filas = [("Precipitación media pronosticada (mm)", lambda i: fmt(i["media_pron"])),
+             ("Precipitación media observada (mm)", lambda i: fmt(i["media_obs"])),
+             ("Sesgo de cantidad (pronosticado / observado)", lambda i: "—" if i["sesgo"] is None else fmt(i["sesgo"], 2)),
+             ("Error medio absoluto (mm)", lambda i: fmt(i["EMA"])),
+             ("Probabilidad de detección, POD (umbral 1 mm)", lambda i: pct(i["POD"])),
+             ("Razón de falsas alarmas, FAR", lambda i: pct(i["FAR"])),
+             ("Índice de éxito crítico, CSI", lambda i: pct(i["CSI"])),
+             ("Acierto exacto de categoría de intensidad", lambda i: pct(i["acierto_cat"])),
+             ("Acierto con tolerancia de una categoría", lambda i: pct(i["cerca_cat"])),
+             ("Aciertos / falsas alarmas / no detectadas / secos correctos",
+              lambda i: f"{i['aciertos']} / {i['falsas_alarmas']} / {i['no_detectadas']} / {i['correctos_secos']}")]
+    columnas = list(v["resultados"].keys())
+    celdas = [[n] + [f(v["resultados"][c]["ind"]) for c in columnas] for n, f in filas]
+    celdas.append(["Hora del máximo: observada / pronosticada",
+                   f"{v['hora_obs'] if v['hora_obs'] is not None else '—'}h00 / {v['hora_pron'] if v['hora_pron'] is not None else '—'}h00"] + [""] * (len(columnas) - 1))
+    ax = fig.add_axes([0.05, 0.56, 0.9, 0.31]); ax.axis("off")
+    tab = ax.table(cellText=celdas, colLabels=["Indicador"] + [f"Emitido {c}" for c in columnas], loc="upper center", cellLoc="center",
+                   colWidths=[0.56] + [0.22] * len(columnas))
+    tab.auto_set_font_size(False); tab.set_fontsize(7.8); tab.scale(1, 1.35)
+    for (i, j), cel in tab.get_celld().items():
+        if i == 0:
+            cel.set_facecolor(AZUL); cel.set_text_props(color="white", weight="bold")
+        elif j == 0:
+            cel.set_text_props(ha="left"); cel._loc = "left"
+        if i > 0 and i % 2 == 0:
+            cel.set_facecolor("#f3f6fa")
+    ax2 = fig.add_axes([0.03, 0.27, 0.94, 0.3]); ax2.imshow(plt.imread(v["png"])); ax2.axis("off")
+    ind = (v["resultados"].get("mismo día") or list(v["resultados"].values())[0])["ind"]
+    frases = []
+    if ind["sesgo"] is not None:
+        frases.append("El pronóstico " + ("sobreestimó" if ind["sesgo"] > 1.3 else ("subestimó" if ind["sesgo"] < 0.77 else "se aproximó a"))
+                      + f" la cantidad de lluvia (en promedio anunció {fmt(ind['media_pron'])} mm y se registraron {fmt(ind['media_obs'])} mm).")
+    if ind["POD"] is not None:
+        frases.append(f"De las estaciones donde llovió (1 mm o más), el pronóstico había anunciado lluvia en el {pct(ind['POD'])}; "
+                      f"de los sitios donde anunció lluvia, en el {pct(ind['FAR'])} no llegó a 1 mm.")
+    if v["hora_obs"] is not None and v["hora_pron"] is not None:
+        dif = abs(v["hora_obs"] - v["hora_pron"])
+        frases.append(f"La hora de mayor lluvia {'coincidió' if dif <= 1 else 'se desfasó ' + str(dif) + ' horas'} "
+                      f"(observada {v['hora_obs']}h00, pronosticada {v['hora_pron']}h00).")
+    mo, mp = v["mayor_obs"], v["mayor_pron"]
+    frases.append(f"La mayor lluvia se registró en {mo.estacion} ({reparar(mo.parroquia)}, {fmt(mo.medido_mm)} mm); "
+                  f"el mayor valor pronosticado fue para {reparar(mp.parroquia)} ({fmt(mp.pronosticado_mm)} mm).")
+    fig.text(0.06, 0.245, "Interpretación", fontsize=10, weight="bold", color=AZUL)
+    parrafos(fig, frases, 0.22, tam=8.6, sep=0.006, ancho=110)
+    fig.text(0.06, 0.035, "POD: proporción de estaciones con lluvia que el pronóstico anticipó. FAR: proporción de anuncios de lluvia que no se cumplieron. "
+             "CSI: aciertos sobre\nel total de aciertos, falsas alarmas y no detectadas. Sesgo mayor que 1: el pronóstico exageró la cantidad. "
+             "Categorías: <1, 1–5, 5–10, 10–20 y >20 mm.", fontsize=6.6, color=GRIS)
+    pdf.savefig(fig); plt.close(fig)
+    return f"Verificación del pronóstico de ayer: {' '.join(frases[:2])}"
 
 
 def portada(pdf, hoy, numero, resumen):
@@ -363,9 +429,10 @@ def portada(pdf, hoy, numero, resumen):
     fig.text(0.06, max(y - 0.02, 0.2), "Contenido", fontsize=12, weight="bold", color=AZUL)
     indice = ["1. Red de estaciones meteorológicas", "2. Lluvia del mes comparada con lo normal",
               "3. Pronóstico de lluvia por periodo en cada zona (norte, centro, sur, valles y páramos)",
-              "4. Mapas de la lluvia pronosticada en el DMQ", "5. Pronóstico de hoy por brigada distrital",
-              "6. Emergencias de este mes en años anteriores (por causa, tipo, brigada y parroquia)",
-              "7. Emergencias del año: comparación entre años", "8. Lluvia y emergencias en días parecidos", "9. Imagen del satélite GOES"]
+              "4. Mapas de la lluvia pronosticada en el DMQ", "5. Verificación del pronóstico del día anterior (indicadores de desempeño)",
+              "6. Pronóstico de hoy por brigada distrital",
+              "7. Emergencias de este mes en años anteriores (por causa, tipo, brigada y parroquia)",
+              "8. Emergencias del año: comparación entre años", "9. Lluvia y emergencias en días parecidos", "10. Imagen del satélite GOES"]
     yy = max(y - 0.045, 0.17)
     for i in indice:
         fig.text(0.08, yy, i, fontsize=9); yy -= 0.022
@@ -410,7 +477,12 @@ def generar(hoy=None):
             texto_mapas = se.pagina_mapas(pdf, hoy, numero, capas, MESES)
         except Exception as ex:
             print("Sin mapas de pronóstico:", str(ex)[:120])
-        pagina_imagen(pdf, hoy, numero, "5. Pronóstico de lluvia de hoy por brigada distrital", por_dia.get("1"))
+        try:
+            verif = pagina_verificacion(pdf, hoy, numero)
+        except Exception as ex:
+            verif = None
+            print("Sin verificación del día anterior:", str(ex)[:120])
+        pagina_imagen(pdf, hoy, numero, "6. Pronóstico de lluvia de hoy por brigada distrital", por_dia.get("1"))
         r_em = pagina_emergencias_mes(pdf, hoy, numero, t)
         r_an = pagina_emergencias_anio(pdf, hoy, numero, t, meta)
         previstos = pagina_lluvia_emergencias(pdf, hoy, numero, t, pron)
@@ -439,6 +511,8 @@ def generar(hoy=None):
                        f". El periodo con más lluvia sería {z_max[1][2]} del {z_max[1][3]:%d/%m}.")
     elif textos_zonas:
         resumen.append("No se espera lluvia importante en la ciudad en los próximos 3 días.")
+    if verif:
+        resumen.append(verif)
     if r_em:
         pa = r_em["por_anio"]; anio_max = int(pa.idxmax())
         causas = ", ".join(r_em["causas"].index[:3].str.lower()) if len(r_em["causas"]) else "sin causa registrada"

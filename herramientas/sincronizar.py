@@ -27,6 +27,7 @@ CODIGO = {
     "boletin/boletin_diario.py": "nube/boletin/boletin_diario.py",
     "boletin/normales_lluvia.json": "nube/boletin/normales_lluvia.json",
     "boletin/secciones_epmaps.py": "nube/boletin/secciones_epmaps.py",
+    "boletin/verificar_pronostico.py": "nube/boletin/verificar_pronostico.py",
     "visualizador/estilo.css": "sitio/estilo.css",
     "visualizador/comun.js": "sitio/comun.js",
     "visualizador/app.js": "sitio/app.js",
