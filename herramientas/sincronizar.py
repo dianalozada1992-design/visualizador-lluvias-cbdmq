@@ -26,6 +26,7 @@ CODIGO = {
     "alertas/condiciones_paramh2o.json": "nube/alertas/condiciones_paramh2o.json",
     "boletin/boletin_diario.py": "nube/boletin/boletin_diario.py",
     "boletin/normales_lluvia.json": "nube/boletin/normales_lluvia.json",
+    "boletin/secciones_epmaps.py": "nube/boletin/secciones_epmaps.py",
     "visualizador/estilo.css": "sitio/estilo.css",
     "visualizador/comun.js": "sitio/comun.js",
     "visualizador/app.js": "sitio/app.js",
