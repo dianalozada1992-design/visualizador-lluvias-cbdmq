@@ -186,13 +186,15 @@ function dibujarCaudal() {
 function dibujarAlertas() {
   const A = TR.alertas, cont = document.getElementById("lista-alertas"), sub = document.getElementById("sub-alertas");
   if (!A) { sub.textContent = "Sin información de alertas."; cont.innerHTML = ""; return; }
-  const orden = { alerta: 0, crecida: 1, condiciones: 2, aviso: 3 };
+  const orden = { alerta: 0, crecida: 1, condiciones: 2, aviso: 3, cuenca: 4, control: 5 };
   const act = [...A.activas].sort((a, b) => orden[a.tipo] - orden[b.tipo] || b.nivel - a.nivel || (b.mm_1h || 0) - (a.mm_1h || 0));
   const env = A.enviadas && A.enviadas.length ? `Último envío por Telegram: ${A.hora.slice(11)} a ${A.enviadas.join(", ")}.` : "";
   sub.innerHTML = (act.length ? `${act.length} situaciones activas (revisado ${A.hora.slice(11)}). ` : `Sin alertas (revisado ${A.hora.slice(11)}). `) + env +
     (A.error_envio ? ` <b>No se pudo enviar a ${A.error_envio.split(":")[0]}.</b>` : "");
-  const icono = { alerta: "🔵", crecida: "🌊", condiciones: "🌥️", aviso: "🟢" };
+  const icono = { alerta: "🔵", crecida: "🌊", condiciones: "🌥️", aviso: "🟢", cuenca: "💧", control: "⚠️" };
   const titulo = a => a.tipo === "alerta" ? ["", "Lluvia fuerte", "Lluvia muy fuerte", "Lluvia muy intensa"][a.nivel] + ` (nivel ${a.nivel})` : a.tipo === "crecida" ? (a.nivel_nombre || "Río creciendo") :
+    a.tipo === "cuenca" ? `Lluvia acumulada en la cuenca (${(a.nivel_nombre || "").toLowerCase()}; informativo)` :
+    a.tipo === "control" ? "Dato descartado por control de calidad" :
     a.tipo === "condiciones" ? (a.nivel === 2 ? "Puede llover en 2 horas (muy probable)" : "Puede llover en 2 horas (posible, no se envía)") : "Está lloviendo";
   cont.innerHTML = act.map(a => `<div class="fila alerta-${a.tipo}"><span>${icono[a.tipo]}</span><span><b>${titulo(a)}</b><small>${a.texto}` +
     (a.detalle ? `<br><i class="detalle">${a.detalle}</i>` : "") + `</small></span><span></span></div>`).join("");

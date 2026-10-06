@@ -128,3 +128,5 @@ a.pestana { text-decoration: none; display: inline-block; }
 .enlace-boletin { color: #fff; font-weight: 700; text-decoration: none; margin-top: 4px; }
 .enlace-boletin:hover { text-decoration: underline; }
 .fila .detalle { color: #7f8c8d; font-size: 10.5px; }
+.fila.alerta-cuenca { background: #f3f6fa; border-left: 4px solid #9aa7b4; }
+.fila.alerta-control { background: #f6f6f6; border-left: 4px solid #7f8c8d; }

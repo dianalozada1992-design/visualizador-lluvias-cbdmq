@@ -22,5 +22,14 @@
   "repetir_aviso_cada_horas": 3,
   "dato_maximo_atraso_min": 90,
   "enviar_mensajes": true,
-  "condiciones_nivel_minimo_telegram": 2
+  "condiciones_nivel_minimo_telegram": 2,
+  "control_calidad": {
+    "max_1h_mm": 80,
+    "max_5min_mm": 25,
+    "radio_vecinas_km": 6,
+    "vecina_con_lluvia_mm": 0.5,
+    "nota": "Maximo historico 2018-2026 en 98 estaciones: 56 mm en 1 h. El 12 % de las horas con 10 mm o mas fueron aisladas (sin lluvia en vecinas a 6 km): no se descartan, se marcan por confirmar."
+  },
+  "suelo_cargado_mm": 25,
+  "suelo_cargado_nota": "Con >=30 mm/h la probabilidad de emergencia a 4 km sube de 31 % (suelo seco) a 55 % (>=25 mm en los 3 dias anteriores), 2018-2026."
 }

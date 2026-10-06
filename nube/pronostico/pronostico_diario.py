@@ -86,6 +86,37 @@ def puntos_parroquias():
     return df, diss
 
 
+HUMEDA = {10, 11, 12, 1, 2, 3, 4, 5}
+
+
+def mapear(valores, mapa):
+    """Mapeo de cuantiles: lleva la lluvia diaria del modelo a la distribucion de lo medido en el DMQ."""
+    qm, qo = np.array(mapa["modelo"]), np.array(mapa["observado"])
+    x = np.asarray(valores, dtype=float)
+    y = np.interp(x, qm, qo) + np.where(x > qm[-1], x - qm[-1], 0) * (qo[-1] / max(qm[-1], 0.1))
+    return np.where(x <= 0, 0, y)
+
+
+def factor_diario(diario, modelo, calib):
+    """Factor por dia (lluvia corregida / lluvia del modelo). diario: Serie con indice de fechas."""
+    mq = calib.get("mapeo_cuantiles", {}).get(modelo)
+    if not mq:
+        return pd.Series(calib[modelo]["factor_sesgo"], index=diario.index)
+    temporada = np.where(np.isin(pd.DatetimeIndex(diario.index).month, list(HUMEDA)), "humeda", "seca")
+    corr = np.array([mapear([v], mq[s])[0] for v, s in zip(diario.values, temporada)])
+    return pd.Series(np.where(diario.values > 0, corr / np.maximum(diario.values, 1e-6), 0), index=diario.index)
+
+
+def corregir_tabla(tabla, modelo, calib):
+    """tabla: lluvia horaria del modelo (horas x puntos). Devuelve la lluvia corregida con el mapeo de cuantiles diario."""
+    dia = tabla.index.normalize()
+    out = tabla.copy()
+    for col in tabla.columns:
+        diario = tabla[col].groupby(dia).sum()
+        out[col] = tabla[col].values * factor_diario(diario, modelo, calib).reindex(dia).values
+    return out
+
+
 def pronostico_modelos(pts, calib):
     modelos = calib["conjunto"]["modelos"]
     salida = []
@@ -102,8 +133,14 @@ def pronostico_modelos(pts, calib):
                                             "mm": h["precipitation"]}))
             time.sleep(1)
     f = pd.concat(salida, ignore_index=True).dropna(subset=["mm"])
-    f["mm"] = f.mm * f.modelo.map({m: calib[m]["factor_sesgo"] for m in modelos})
+    # correccion con lo medido en el DMQ: mapeo de cuantiles de la lluvia diaria (si no hay, factor fijo)
     f["dia"] = f.hora.dt.normalize()
+    diario = f.groupby(["parroquia", "modelo", "dia"]).mm.sum()
+    factores = pd.concat([factor_diario(g.droplevel([0, 1]), m, calib).rename("k").to_frame().assign(parroquia=p, modelo=m)
+                          for (p, m), g in diario.groupby(level=[0, 1])]).reset_index().rename(columns={"index": "dia"})
+    f = f.merge(factores, on=["parroquia", "modelo", "dia"], how="left")
+    f["mm"] = f.mm * f.k.fillna(0)
+    f = f.drop(columns="k")
     return f
 
 

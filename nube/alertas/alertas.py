@@ -76,6 +76,19 @@ def evaluar(salida, capas, cfg, cuencas):
     """Devuelve la lista de situaciones activas ahora (sin decidir aun si se envian)."""
     activas = []
     estaciones = []
+    qc = cfg.get("control_calidad", {"max_1h_mm": 80, "max_5min_mm": 25, "radio_vecinas_km": 6, "vecina_con_lluvia_mm": 0.5})
+    todas = [x for x in salida.get("cbdmq", []) + salida.get("lluvia_epmaps", []) if not x.get("sin_datos") and x.get("lat") is not None
+             and x.get("retraso_min", 9999) <= cfg["dato_maximo_atraso_min"]]
+
+    def con_vecina_lloviendo(e):
+        """Consistencia espacial: alguna estacion a menos de 6 km tambien registra lluvia en la ultima hora."""
+        for x in todas:
+            if x is e:
+                continue
+            d = 111.2 * ((x["lat"] - e["lat"]) ** 2 + ((x["lon"] - e["lon"]) * 0.9999) ** 2) ** 0.5
+            if d <= qc["radio_vecinas_km"] and (x.get("lluvia_1h") or 0) >= qc["vecina_con_lluvia_mm"]:
+                return True
+        return False
     for e in salida.get("cbdmq", []) + salida.get("lluvia_epmaps", []):
         if e.get("sin_datos") or e.get("dato_anterior") or e.get("lat") is None:
             continue
@@ -89,11 +102,23 @@ def evaluar(salida, capas, cfg, cuencas):
         donde = {"estacion": nombre, "lugar": lugar, "parroquia": parroquia, "brigada": brigada}
         estaciones.append({**e, "_nombre": nombre, "_lugar": lugar, "_cuenca": cue["id"] if cue else None})
         mm = e.get("lluvia_1h", 0) or 0
+        # control de calidad (OMM N 8; Zahumensky 2004): valores imposibles se descartan y no generan alerta
+        if mm > qc["max_1h_mm"] or (e.get("max_5min") or 0) > qc["max_5min_mm"]:
+            activas.append({"tipo": "control", "clave": "control:" + nombre, "nivel": 0, **donde, "mm_1h": mm,
+                            "texto": f"{parroquia}: dato de lluvia descartado por control de calidad ({fmt(mm)} mm en 1 h; "
+                                     f"máximo en 5 min {fmt(e.get('max_5min') or 0)} mm)", "detalle": f"Estación {nombre}: revisar el sensor"})
+            continue
+        previa = e.get("lluvia_previa_72h")
+        cargado = previa is not None and previa >= cfg.get("suelo_cargado_mm", 25)
         nivel = sum(mm >= u for u in cfg["alerta_lluvia_1h_mm"])
         if nivel:
+            aislada = not con_vecina_lloviendo(e)
             activas.append({"tipo": "alerta", "clave": "alerta:" + nombre, "nivel": nivel, **donde, "mm_1h": mm,
-                            "texto": f"{parroquia} (brigada {brigada}): {fmt(mm)} mm de lluvia en la última hora",
-                            "detalle": f"Estación {nombre}"})
+                            "aislada": aislada, "suelo_cargado": cargado, "rio": cue["rio"] if cue else None,
+                            "texto": f"{parroquia} (brigada {brigada}): {fmt(mm)} mm de lluvia en la última hora"
+                                     + (" · suelo cargado por lluvias de días anteriores" if cargado else "")
+                                     + (" · registrado en una sola estación, por confirmar" if aislada else ""),
+                            "detalle": f"Estación {nombre}" + (f"; lluvia de los 3 días anteriores: {fmt(previa)} mm" if previa is not None else "")})
         elif mm >= cfg["aviso_lluvia_1h_mm"]:
             activas.append({"tipo": "aviso", "clave": "aviso:" + nombre, "nivel": 1, **donde, "mm_1h": mm,
                             "texto": f"{parroquia} (brigada {brigada}): {fmt(mm)} mm en la última hora",
@@ -136,7 +161,7 @@ def evaluar(salida, capas, cfg, cuencas):
         abajo = " → ".join(rec) if rec else "sale del DMQ"
         mayor = max(est, key=lambda e: e.get("lluvia_3h", 0) or 0)
         n_est = f"{len(est)} estaciones" if len(est) > 1 else "1 estación"
-        activas.append({"tipo": "crecida", "clave": "crecida:" + c["rio"], "nivel": nivel, "nivel_nombre": nombre_nivel,
+        activas.append({"tipo": "cuenca", "clave": "cuenca:" + c["rio"], "nivel": nivel, "nivel_nombre": nombre_nivel,
                         "rio": c["rio"], "lluvia_3h": round(p3, 1), "lluvia_24h": round(p24, 1), "aguas_abajo": c["aguas_abajo"],
                         "brigadas": c["brigadas"], "parroquias": c["parroquias"],
                         "texto": (f"{c['rio']} ({nombre_nivel.lower()}): llovió bastante en la zona del río "
@@ -206,8 +231,18 @@ def armar_mensaje(items, ahora, cfg):
             titulo, accion = NIVELES_LLUVIA[nivel]
             lineas = [f"🔵 *{titulo} AHORA* ({u[nivel - 1]} mm o más en una hora)"]
             for i in sorted(al, key=lambda i: -i["mm_1h"]):
-                lineas.append(f"• {i['parroquia']}: {fmt(i['mm_1h'])} mm en la última hora")
+                extra = []
+                if i.get("suelo_cargado"):
+                    extra.append("suelo cargado por lluvias de días anteriores")
+                if i.get("aislada"):
+                    extra.append("una sola estación, por confirmar")
+                lineas.append(f"• {i['parroquia']}: {fmt(i['mm_1h'])} mm en la última hora" + (f" ({'; '.join(extra)})" if extra else ""))
             lineas.append(f"👉 {accion}")
+            if nivel >= 2:
+                rios = sorted({i["rio"] for i in al if i.get("rio")})
+                lineas.append("👉 Vigilar quebradas y cauces cercanos" + (f" (zona del {', '.join(rios)})" if rios else "") + ".")
+            if any(i.get("suelo_cargado") for i in al) and nivel >= 2:
+                lineas.append("👉 Con el suelo cargado, este tipo de lluvia causó emergencias con más frecuencia (hasta 5 de cada 10 veces).")
             partes.append("\n".join(lineas))
     cr = sorted([i for i in items if i["tipo"] == "crecida"], key=lambda i: -i["nivel"])
     if cr:

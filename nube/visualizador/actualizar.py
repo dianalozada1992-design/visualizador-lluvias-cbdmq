@@ -78,6 +78,11 @@ def resumen_lluvia(s, t):
             "lluvia_3h": round(float(s[s.index > t - dt.timedelta(hours=3)].sum()), 1),
             "lluvia_hoy": round(float(s[s.index >= hoy].sum()), 1),
             "lluvia_24h": round(float(s[s.index > t - dt.timedelta(hours=24)].sum()), 1),
+            # control de calidad: mayor registro individual (cada 5 min) en la ultima hora
+            "max_5min": round(float(s[s.index > t - dt.timedelta(hours=1)].max()), 1) if (s.index > t - dt.timedelta(hours=1)).any() else 0.0,
+            # lluvia antecedente: 3 dias anteriores a las ultimas 24 h (humedad del suelo; Kohler y Linsley 1951)
+            "lluvia_previa_72h": (round(float(s[(s.index > t - dt.timedelta(hours=96)) & (s.index <= t - dt.timedelta(hours=24))].sum()), 1)
+                                  if s.index.min() <= t - dt.timedelta(hours=84) else None),
             "horaria": [[k.strftime("%Y-%m-%d %H:00"), round(float(v), 1)] for k, v in s.resample("h").sum().tail(24).items()]}
 
 
@@ -99,7 +104,7 @@ def resumen_rio(s, t, umbral):
 
 
 def telemetria(capas, t):
-    ini = (t - dt.timedelta(hours=30))
+    ini = (t - dt.timedelta(hours=96))
     lluvia, rios = [], []
     todos = bajar_telemetria(capas["telemetria"], ini, t)
     for e in capas["telemetria"]:
@@ -156,7 +161,7 @@ def cbdmq(capas, t):
     except Exception:
         return []
     fin = dt.datetime.now(dt.timezone.utc).replace(tzinfo=None)
-    ini = fin - dt.timedelta(hours=30)
+    ini = fin - dt.timedelta(hours=96)
     out = []
     coords = {c["nombre"]: c for c in capas["cbdmq"]}
     # condiciones propicias para lluvia: hace falta lo que anuncia el modelo para las 2 horas siguientes

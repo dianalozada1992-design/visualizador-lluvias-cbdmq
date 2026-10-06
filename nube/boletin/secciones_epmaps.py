@@ -88,7 +88,9 @@ def pronostico_puntos(puntos, dias=4):
             for r in d:
                 cols.append(pd.Series(r["hourly"]["precipitation"], index=pd.to_datetime(r["hourly"]["time"]), dtype=float))
             time.sleep(1)
-        tabla = pd.concat(cols, axis=1).fillna(0) * calib[m]["factor_sesgo"]
+        sys.path.insert(0, os.path.join(BASE, "pronostico"))
+        import pronostico_diario as pdi
+        tabla = pdi.corregir_tabla(pd.concat(cols, axis=1).fillna(0), m, calib)
         total = tabla if total is None else total + tabla
     return total / len(modelos)
 
