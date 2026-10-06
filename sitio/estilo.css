@@ -127,3 +127,4 @@ a.pestana { text-decoration: none; display: inline-block; }
 .fila.alerta-condiciones { background: #eef6f3; border-left: 4px solid #5bbfa8; }
 .enlace-boletin { color: #fff; font-weight: 700; text-decoration: none; margin-top: 4px; }
 .enlace-boletin:hover { text-decoration: underline; }
+.fila .detalle { color: #7f8c8d; font-size: 10.5px; }
