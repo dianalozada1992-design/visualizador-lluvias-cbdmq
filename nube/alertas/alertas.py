@@ -113,6 +113,7 @@ def evaluar(salida, capas, cfg, cuencas):
                                      f"Con condiciones así llovió {veces} veces.",
                             "detalle": f"Estación {nombre}: " + ", ".join(senales) + "."})
     # riesgo de crecida por microcuenca
+    nombre_parr = {f["properties"]["id"]: f["properties"]["nombre"] for f in capas["parroquias"]["features"]}
     niveles = list(cfg["crecida_promedio_microcuenca_mm"].items())
     for c in cuencas:
         est = [e for e in estaciones if e["_cuenca"] == c["id"]]
@@ -141,6 +142,9 @@ def evaluar(salida, capas, cfg, cuencas):
                         "texto": (f"{c['rio']} ({nombre_nivel.lower()}): llovió bastante en la zona del río "
                                   f"({fmt(p3)} mm en 3 horas y {fmt(p24)} mm en 24 horas, en promedio). "
                                   f"El agua baja hacia: {abajo}. Brigadas: {', '.join(c['brigadas'][:4])}."),
+                        "texto_telegram": (f"{c['rio']} ({nombre_nivel.lower()}): llovió bastante en la zona del río "
+                                           f"({fmt(p3)} mm en 3 horas y {fmt(p24)} mm en 24 horas, en promedio). "
+                                           f"El agua baja hacia: {abajo}. Parroquias de la zona: {', '.join(nombre_parr.get(x, x) for x in c['parroquias'][:5])}."),
                         "detalle": f"{n_est} en la microcuenca; la de más lluvia: {mayor['_nombre']}"})
     # estaciones de rios (caudal o nivel) creciendo fuerte o sobre el umbral; una linea por estacion
     vistos = set()
@@ -201,31 +205,27 @@ def armar_mensaje(items, ahora, cfg):
         if al:
             titulo, accion = NIVELES_LLUVIA[nivel]
             lineas = [f"🔵 *{titulo} AHORA* ({u[nivel - 1]} mm o más en una hora)"]
-            for brig, g in por_brigada(al):
-                for i in sorted(g, key=lambda i: -i["mm_1h"]):
-                    lineas.append(f"• Brigada {brig} – {i['parroquia']}: {fmt(i['mm_1h'])} mm en la última hora")
+            for i in sorted(al, key=lambda i: -i["mm_1h"]):
+                lineas.append(f"• {i['parroquia']}: {fmt(i['mm_1h'])} mm en la última hora")
             lineas.append(f"👉 {accion}")
             partes.append("\n".join(lineas))
     cr = sorted([i for i in items if i["tipo"] == "crecida"], key=lambda i: -i["nivel"])
     if cr:
-        lineas = ["🌊 *POSIBLE CRECIDA DE RÍOS Y QUEBRADAS*"] + [f"• {i['texto']}" for i in cr]
+        lineas = ["🌊 *POSIBLE CRECIDA DE RÍOS Y QUEBRADAS*"] + [f"• {i.get('texto_telegram', i['texto'])}" for i in cr]
         lineas.append(f"👉 {ACCION_CRECIDA[max(i['nivel'] for i in cr)]}")
         partes.append("\n".join(lineas))
     co = [i for i in items if i["tipo"] == "condiciones"]
     if co:
         lineas = ["🌥️ *PUEDE LLOVER EN LAS PRÓXIMAS 2 HORAS*",
                   "Las estaciones y el pronóstico muestran condiciones muy favorables para lluvia en:"]
-        for brig, g in por_brigada(co):
-            parr = sorted({i["parroquia"] for i in g})
-            lineas.append(f"• Brigada {brig}: {', '.join(parr)}")
+        lineas.append("• " + ", ".join(sorted({i["parroquia"] for i in co})))
         veces = sorted({i.get("veces", "") for i in co})
         lineas.append(f"👉 Aviso preventivo, no confirmado: con condiciones así llovió {' a '.join(v.split(' de ')[0] for v in veces)} de cada 10 veces.")
         partes.append("\n".join(lineas))
     av = [i for i in items if i["tipo"] == "aviso"]
     if av:
         lineas = [f"🟢 *ESTÁ LLOVIENDO* ({cfg['aviso_lluvia_1h_mm']} mm o más en una hora)"]
-        for brig, g in por_brigada(av):
-            lineas.append(f"• Brigada {brig}: " + ", ".join(f"{i['parroquia']} ({fmt(i['mm_1h'])} mm)" for i in sorted(g, key=lambda i: -i["mm_1h"])))
+        lineas.append("• " + ", ".join(f"{i['parroquia']} ({fmt(i['mm_1h'])} mm)" for i in sorted(av, key=lambda i: -i["mm_1h"])))
         partes.append("\n".join(lineas))
     partes.append(f"Más detalle: {ENLACE}\n{CREDITO}")
     return "\n\n".join(partes)
