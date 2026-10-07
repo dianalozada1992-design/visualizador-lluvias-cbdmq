@@ -17,6 +17,7 @@ CODIGO = {
     "pronostico/pronostico_diario.py": "nube/pronostico/pronostico_diario.py",
     "pronostico/boletin_visual.py": "nube/pronostico/boletin_visual.py",
     "pronostico/calibracion.json": "nube/pronostico/calibracion.json",
+    "pronostico/centros_poblados.json": "nube/pronostico/centros_poblados.json",
     "alertas/alertas.py": "nube/alertas/alertas.py",
     "alertas/enviar_pronostico.py": "nube/alertas/enviar_pronostico.py",
     "alertas/alertas_config.json": "nube/alertas/alertas_config.json",

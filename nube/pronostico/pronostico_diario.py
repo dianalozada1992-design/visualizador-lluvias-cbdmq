@@ -144,6 +144,63 @@ def pronostico_modelos(pts, calib):
     return f
 
 
+FACTOR_RADIACION = 0.82   # los modelos dan ~22 % mas radiacion que las estaciones CBDMQ (jul-oct 2026)
+CATEGORIAS_UV = [(0, 3, "Bajo"), (3, 6, "Moderado"), (6, 8, "Alto"), (8, 11, "Muy alto"), (11, 99, "Extremo")]   # OMS
+
+
+def categoria_uv(uv):
+    return next((n for a, b, n in CATEGORIAS_UV if a <= (uv or 0) < b), "")
+
+
+def pronostico_clima(pts, dias=DIAS):
+    """Temperatura maxima y minima, indice UV maximo y radiacion solar diaria por parroquia.
+    Verificado con las 8 estaciones CBDMQ (jul-oct 2026): temp. maxima del modelo 'best_match' (error medio 1,3 C, sin sesgo),
+    temp. minima de ECMWF IFS 0,25 (error medio 1,6 C), radiacion corregida por FACTOR_RADIACION. El UV es valor del modelo."""
+    # para la temperatura se usa el centro poblado de cada parroquia (OpenStreetMap, verificado dentro de la parroquia);
+    # en parroquias rurales grandes el punto central puede caer en el paramo y daria temperaturas de alta montana
+    ruta_c = os.path.join(os.path.dirname(os.path.abspath(__file__)), "centros_poblados.json")
+    centros = json.load(open(ruta_c, encoding="utf8")) if os.path.exists(ruta_c) else {}
+    pts = pts.copy()
+    pts["lat"] = [centros.get(p, (la, lo))[0] for p, la, lo in zip(pts.parroquia, pts.lat, pts.lon)]
+    pts["lon"] = [centros.get(p, (la, lo))[1] for p, la, lo in zip(pts.parroquia, pts.lat, pts.lon)]
+    filas = {}
+    for modelo, variables in (("best_match", "temperature_2m_max,uv_index_max,shortwave_radiation_sum"), ("ecmwf_ifs025", "temperature_2m_min")):
+        for i in range(0, len(pts), 25):
+            g = pts.iloc[i:i + 25]
+            q = urllib.parse.urlencode({"latitude": ",".join(f"{x:.4f}" for x in g.lat), "longitude": ",".join(f"{x:.4f}" for x in g.lon),
+                                        "daily": variables, "models": modelo, "forecast_days": dias, "timezone": "America/Guayaquil"})
+            d = pedir("https://api.open-meteo.com/v1/forecast?" + q)
+            d = d if isinstance(d, list) else [d]
+            for parr, r in zip(g.parroquia, d):
+                dd = r["daily"]
+                for k, dia in enumerate(dd["time"]):
+                    f = filas.setdefault((parr, dia), {"parroquia": parr, "dia": pd.Timestamp(dia)})
+                    for var in variables.split(","):
+                        f[var] = dd[var][k]
+            time.sleep(1)
+    c = pd.DataFrame(filas.values())
+    c = c.rename(columns={"temperature_2m_max": "temp_max_c", "temperature_2m_min": "temp_min_c", "uv_index_max": "indice_uv",
+                          "shortwave_radiation_sum": "radiacion_mj_m2"})
+    c["radiacion_mj_m2"] = (c.radiacion_mj_m2 * FACTOR_RADIACION).round(1)
+    c[["temp_max_c", "temp_min_c", "indice_uv"]] = c[["temp_max_c", "temp_min_c", "indice_uv"]].round(1)
+    c["categoria_uv"] = c.indice_uv.map(categoria_uv)
+    return c
+
+
+def inamhi_quito():
+    """Pronostico oficial del INAMHI para Quito (pagina publica), como referencia."""
+    import html as _html
+    try:
+        req = urllib.request.Request("https://servicios.inamhi.gob.ec/pronostico-nacional/?inamhi_city=Quito", headers={"User-Agent": "Mozilla/5.0"})
+        t = urllib.request.urlopen(req, timeout=60).read().decode("utf8", "replace")
+        items = json.loads(_html.unescape(re.search(r"data-forecast='([^']+)'", t).group(1)))
+        q = next(x for x in items if x.get("locality_name") == "Quito")
+        return {"fecha": q["date"], "temp_min": float(q["min_temperature"]), "temp_max": float(q["max_temperature"]), "uv": q["uv_radiation"],
+                "periodos": [[f["period_name"], f["condition_name"]] for f in q.get("forecast", [])]}
+    except Exception:
+        return None
+
+
 def lluvia_7_dias():
     """Lluvia medida en los ultimos 7 dias en cada estacion CBDMQ (API LI-COR)."""
     try:
@@ -273,6 +330,12 @@ def main():
         for dia, g in tabla.groupby("dia"):
             g.drop(columns="dia").to_excel(xw, sheet_name=f"{dia:%d-%m}", index=False)
         f.pivot_table(index=["parroquia", "hora"], columns="modelo", values="mm").round(2).to_excel(xw, sheet_name="por_hora")
+        try:
+            clima = pronostico_clima(pts)
+            clima["parroquia"] = clima.parroquia.replace(NOMBRES)
+            clima.to_excel(xw, sheet_name="temperatura_uv", index=False)
+        except Exception as e:
+            print("Sin pronóstico de temperatura y UV:", e)
 
     # boletin PDF: mapa por dia y tabla de parroquias con mayor nivel
     nivel_de = {(r.parroquia, r.dia): r.nivel for r in conj.itertuples()}

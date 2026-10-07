@@ -243,7 +243,15 @@ def pronostico():
             dd[dia.strftime("%Y-%m-%d")] = {"media_mm": round(float(np.mean(list(tot.values()))), 1), "periodos": per,
                                              "mas_lluvia": [[pdi.NOMBRES.get(p, p), v] for p, v in top]}
         brig[b] = {"dias": dd, "horaria": [[k.strftime("%Y-%m-%d %H:00"), round(float(v), 2)] for k, v in hb.items()]}
+    clima = {}
+    try:
+        c = pdi.pronostico_clima(pts)
+        for r in c.itertuples():
+            clima.setdefault(r.parroquia, {})[r.dia.strftime("%Y-%m-%d")] = [r.temp_max_c, r.temp_min_c, r.indice_uv, r.radiacion_mj_m2]
+    except Exception as e:
+        print("Sin temperatura y UV:", str(e)[:100])
     return {"dias": [pd.Timestamp(d).strftime("%Y-%m-%d") for d in dias], "por_parroquia": por_parroquia, "brigadas": brig,
+            "clima": clima, "inamhi_quito": pdi.inamhi_quito(),
             "modelos": [calib[m]["nombre"] for m in calib["conjunto"]["modelos"]]}
 
 

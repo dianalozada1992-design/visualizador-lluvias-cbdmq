@@ -65,9 +65,14 @@ function dibujarPronostico() {
       return { fillColor: color(v, CLASES_DIA), fillOpacity: .72, color: "#fff", weight: .8 }; },
     onEachFeature: (f, l) => {
       const p = f.properties, val = pr.por_parroquia[p.id] || {};
-      l.bindPopup(`<h3>${p.nombre}</h3><div>Brigada distrital: <b>${reparar(p.brigada)}</b></div><div style="margin-top:6px">` +
-        pr.dias.map(d => `${etiquetaDia(d)}: <b>${fmt(val[d])} mm</b>`).join("<br>") + "</div>");
-      l.bindTooltip(`${p.nombre}: ${fmt(val[estado.dia])} mm`, { sticky: true });
+      const cl = (pr.clima || {})[p.id] || {};
+      l.bindPopup(`<h3>${p.nombre}</h3><div>Brigada distrital: <b>${reparar(p.brigada)}</b></div>` +
+        `<table class="tabla-popup"><tr><th></th><th>Lluvia</th><th>Temp. máx / mín</th><th>Índice UV</th><th>Radiación</th></tr>` +
+        pr.dias.map(d => { const c = cl[d]; return `<tr><td>${etiquetaDia(d).split(",")[0]}</td><td><b>${fmt(val[d])} mm</b></td>` +
+          (c ? `<td>${fmt(c[0], 0)} / ${fmt(c[1], 0)} °C</td><td>${fmt(c[2], 0)} · ${categoriaUV(c[2])}</td><td>${fmt(c[3], 0)} MJ/m²</td>` : "<td colspan=3>—</td>") + "</tr>"; }).join("") +
+        "</table>");
+      const ch = cl[estado.dia];
+      l.bindTooltip(`${p.nombre}: ${fmt(val[estado.dia])} mm` + (ch ? ` · ${fmt(ch[0], 0)}/${fmt(ch[1], 0)} °C · UV ${fmt(ch[2], 0)}` : ""), { sticky: true });
     } }).addTo(mapa);
   capaPronostico.bringToBack();
   leyenda("leyenda-pronostico", "Lluvia pronosticada en el día", CLASES_DIA);
@@ -86,6 +91,15 @@ function selectorDias() {
     `<button data-d="" class="${estado.dia ? "" : "activo"}">Ninguno</button>`;
   cont.querySelectorAll("button").forEach(b => b.onclick = () => { estado.dia = b.dataset.d || null; selectorDias(); dibujarPronostico(); dibujarBrigadas(); });
 }
+// indice UV por categorias de la OMS
+function categoriaUV(uv) { return uv == null ? "" : uv < 3 ? "bajo" : uv < 6 ? "moderado" : uv < 8 ? "alto" : uv < 11 ? "muy alto" : "extremo"; }
+function climaBrigada(b, dia) {
+  const pr = TR.pronostico; if (!pr.clima) return "";
+  const vals = CAPAS.parroquias.features.filter(f => reparar(f.properties.brigada) === reparar(b)).map(f => (pr.clima[f.properties.id] || {})[dia]).filter(Boolean);
+  if (!vals.length) return "";
+  const tmax = Math.max(...vals.map(v => v[0])), tmin = Math.min(...vals.map(v => v[1])), uv = Math.max(...vals.map(v => v[2]));
+  return `<div class="brig-clima">🌡️ ${fmt(tmin, 0)} a ${fmt(tmax, 0)} °C · ☀️ UV ${fmt(uv, 0)} (${categoriaUV(uv)})</div>`;
+}
 function dibujarBrigadas() {
   const pr = TR && TR.pronostico, cont = document.getElementById("brigadas");
   const dia = estado.dia || (pr && pr.dias[0]);
@@ -97,10 +111,13 @@ function dibujarBrigadas() {
     const d = pr.brigadas[b].dias[dia]; if (!d) return "";
     return `<div class="brig"><div class="brig-cab"><b>${reparar(b)}</b><span class="brig-mm" style="background:${color(d.media_mm, CLASES_DIA)};color:${d.media_mm >= 5 ? "#fff" : "#1f3f73"}">${fmt(d.media_mm, 0)} mm</span></div>
       <div class="periodos">${d.periodos.map(p => `<div>${p.periodo}${iconoSVG(p.icono, p.noche)}<b>${fmt(p.mm)} mm</b></div>`).join("")}</div>
-      <div class="brig-top">Más lluvia en: ${d.mas_lluvia.map(x => `${x[0]} (${fmt(x[1], 0)} mm)`).join(", ")}</div></div>`;
+      <div class="brig-top">Más lluvia en: ${d.mas_lluvia.map(x => `${x[0]} (${fmt(x[1], 0)} mm)`).join(", ")}</div>${climaBrigada(b, dia)}</div>`;
   }).join("");
-  document.getElementById("nota-pronostico").textContent = `Modelos ${pr.modelos.join(", ")}, corregidos con las estaciones del DMQ. ` +
-    "Los aguaceros de Quito son muy localizados: confirme siempre con las estaciones en tiempo real (umbrales de 10, 20 y 30 mm en una hora).";
+  const iq = pr.inamhi_quito;
+  document.getElementById("nota-pronostico").textContent = `Lluvia: modelos ${pr.modelos.join(", ")}, corregidos con las estaciones del DMQ. ` +
+    "Temperatura, índice UV y radiación: modelos verificados con las estaciones CBDMQ (error medio de 1,3 °C en la máxima y 1,6 °C en la mínima), " +
+    "en el centro poblado de cada parroquia. " + (iq ? `Referencia oficial INAMHI para Quito (${iq.fecha}): ${fmt(iq.temp_min, 1)} a ${fmt(iq.temp_max, 1)} °C, índice UV ${iq.uv}. ` : "") +
+    "Los aguaceros de Quito son muy localizados: confirme siempre con las estaciones en tiempo real.";
 }
 
 // ---------------------------------------------------------------- estaciones con lluvia

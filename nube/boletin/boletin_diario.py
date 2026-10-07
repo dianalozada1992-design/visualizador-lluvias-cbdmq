@@ -143,7 +143,7 @@ def parrafos(fig, textos, y, x=0.06, ancho=95, tam=9.2, sep=0.012):
 
 def pagina_lluvia_mes(pdf, hoy, numero, mes, normales):
     fig = plt.figure(figsize=A4)
-    cabecera(fig, f"4. Lluvia de {MESES[hoy.month - 1]} hasta hoy comparada con lo normal", numero, hoy)
+    cabecera(fig, f"5. Lluvia de {MESES[hoy.month - 1]} hasta hoy comparada con lo normal", numero, hoy)
     filas = []
     for clave, v in mes.items():
         cod = normales["cbdmq"].get(v.get("estacion_cbdmq"), {}).get("codigo") if v["red"] == "CBDMQ" else clave
@@ -210,7 +210,7 @@ def pagina_emergencias_mes(pdf, hoy, numero, t):
     anios = list(range(2018, hoy.year + (0 if hoy.month > t.fecha.max().month or hoy.year > t.fecha.max().year else 1)))
     por_anio = del_mes.groupby(del_mes.fecha.dt.year).size().reindex(anios, fill_value=0)
     fig = plt.figure(figsize=A4)
-    cabecera(fig, f"6. Emergencias por lluvia en {MESES[m - 1]} de años anteriores", numero, hoy)
+    cabecera(fig, f"7. Emergencias por lluvia en {MESES[m - 1]} de años anteriores", numero, hoy)
     ax = fig.add_axes([0.08, 0.68, 0.86, 0.2])
     ax.bar(por_anio.index.astype(str), por_anio.values, color=AZUL_MEDIO)
     prom = por_anio.mean()
@@ -298,7 +298,7 @@ def dias_parecidos(t):
 def pagina_lluvia_emergencias(pdf, hoy, numero, t, pron):
     res, cortes, etiquetas = dias_parecidos(t)
     fig = plt.figure(figsize=A4)
-    cabecera(fig, "7. Lluvia y emergencias: ¿qué pasó en días parecidos?", numero, hoy)
+    cabecera(fig, "8. Lluvia y emergencias: ¿qué pasó en días parecidos?", numero, hoy)
     ax = fig.add_axes([0.1, 0.55, 0.82, 0.32])
     colores = ["#e3f4e6", VERDE_CLARO, "#5bbfa8", AZUL_MEDIO, AZUL]
     ax.bar(etiquetas, res.promedio.values, color=colores, edgecolor="#5d6d7e", lw=0.4)
@@ -340,7 +340,7 @@ def pagina_satelite(pdf, hoy, numero):
     if img is None:
         return False
     fig = plt.figure(figsize=A4)
-    cabecera(fig, "8. Imagen del satélite GOES (infrarrojo)", numero, hoy)
+    cabecera(fig, "9. Imagen del satélite GOES (infrarrojo)", numero, hoy)
     h, w = img.shape[:2]
     ax = fig.add_axes([0.04, 0.12, 0.92, 0.32]); ax.imshow(img); ax.axis("off"); ax.set_title("Norte de Sudamérica", loc="left", fontsize=8)
     ax2 = fig.add_axes([0.1, 0.47, 0.8, 0.42]); ax2.imshow(img[int(h * 0.3):int(h * 0.85), int(w * 0.02):int(w * 0.42)]); ax2.axis("off")
@@ -349,6 +349,72 @@ def pagina_satelite(pdf, hoy, numero):
              "(colores más intensos) suelen ser las de tormenta. Ecuador está en el lado izquierdo de la imagen.", fontsize=8.5)
     pdf.savefig(fig); plt.close(fig)
     return True
+
+
+def pagina_clima(pdf, hoy, numero, capas):
+    """Seccion 4: temperatura maxima y minima e indice UV de hoy por parroquia, con la referencia oficial del INAMHI para Quito."""
+    import glob as _g
+    import re as _re
+    import unicodedata as _u
+    from matplotlib.colors import BoundaryNorm, ListedColormap
+    xl = sorted(_g.glob(os.path.join(BASE, "pronostico", "boletines", f"boletin_{hoy:%Y-%m-%d}*.xlsx")), key=os.path.getmtime)
+    if not xl or "temperatura_uv" not in pd.ExcelFile(xl[-1]).sheet_names:
+        return None
+    c = pd.read_excel(xl[-1], sheet_name="temperatura_uv")
+    c = c[pd.to_datetime(c.dia).dt.date == hoy.date()]
+    simple = lambda s: _re.sub(r"[^a-z]", "", "".join(ch for ch in _u.normalize("NFD", str(s).lower()) if _u.category(ch) != "Mn").replace("\ufffd", ""))
+    val = {simple(r.parroquia): r for r in c.itertuples()}
+    sys.path.insert(0, os.path.join(BASE, "pronostico"))
+    import pronostico_diario as _pdi
+    iq = _pdi.inamhi_quito()
+    fig = plt.figure(figsize=A4)
+    cabecera(fig, "4. Temperatura y radiación UV por parroquia (hoy)", numero, hoy)
+    paneles = [("Temperatura máxima (°C)", "temp_max_c", [8, 12, 14, 16, 18, 20, 22, 24, 26, 30],
+                ["#f3f6fa", "#dbe9f6", "#bcd7ee", "#94c4df", "#6aaed6", "#4592c6", "#2271b5", "#08519c", "#083b7a"]),
+               ("Índice UV máximo (OMS)", "indice_uv", [0, 3, 6, 8, 11, 20], ["#ece7f2", "#bcbddc", "#9e9ac8", "#756bb1", "#54278f"])]
+    for k, (titulo, col, cortes, colores) in enumerate(paneles):
+        ax = fig.add_axes([0.04 + k * 0.48, 0.47, 0.44, 0.42])
+        cmap = ListedColormap(colores); norma = BoundaryNorm(cortes, cmap.N)
+        for f in capas["parroquias"]["features"]:
+            r = val.get(simple(f["properties"]["nombre"]))
+            g = f["geometry"]
+            for poli in (g["coordinates"] if g["type"] == "MultiPolygon" else [g["coordinates"]]):
+                xs, ys = zip(*poli[0])
+                ax.fill(xs, ys, color=cmap(norma(getattr(r, col))) if r is not None else "#ffffff", ec="white", lw=0.3)
+        for f in capas["brigadas"]["features"]:
+            g = f["geometry"]
+            for poli in (g["coordinates"] if g["type"] == "MultiPolygon" else [g["coordinates"]]):
+                xs, ys = zip(*poli[0]); ax.plot(xs, ys, color=AZUL, lw=0.8)
+        ax.set_aspect("equal"); ax.set_xticks([]); ax.set_yticks([]); ax.set_title(titulo, loc="left")
+        cax = fig.add_axes([0.06 + k * 0.48, 0.445, 0.4, 0.012])
+        cb = fig.colorbar(plt.cm.ScalarMappable(norm=norma, cmap=cmap), cax=cax, orientation="horizontal", ticks=cortes)
+        cb.ax.tick_params(labelsize=6.5)
+        if col == "indice_uv":
+            cb.set_ticks([1.5, 4.5, 7, 9.5, 15.5]); cb.set_ticklabels(["bajo", "moderado", "alto", "muy alto", "extremo"])
+    calidas = c.sort_values("temp_max_c", ascending=False).head(5); frias = c.sort_values("temp_min_c").head(5)
+    filas = [[bd_r(a.parroquia), f"{fmt(a.temp_max_c, 0)} °C", bd_r(b.parroquia), f"{fmt(b.temp_min_c, 0)} °C"] for a, b in zip(calidas.itertuples(), frias.itertuples())]
+    ax = fig.add_axes([0.06, 0.2, 0.88, 0.2]); ax.axis("off")
+    tab = ax.table(cellText=filas, colLabels=["Más calurosas (máxima)", "", "Más frías (mínima)", ""], loc="upper center", cellLoc="center")
+    tab.auto_set_font_size(False); tab.set_fontsize(8.5); tab.scale(1, 1.3)
+    for (i, j), cel in tab.get_celld().items():
+        if i == 0:
+            cel.set_facecolor(AZUL); cel.set_text_props(color="white", weight="bold")
+    uvmax = c.indice_uv.max()
+    textos = [f"Temperatura en el DMQ hoy: entre {fmt(c.temp_min_c.min(), 0)} y {fmt(c.temp_max_c.max(), 0)} °C; en la ciudad la máxima ronda "
+              f"los {fmt(c.temp_max_c.median(), 0)} °C. Índice UV máximo de {fmt(uvmax, 0)} ({_pdi.categoria_uv(uvmax).lower()}): "
+              + ("se recomienda protección solar para el personal en exteriores entre las 10h00 y las 15h00." if uvmax >= 8 else "radiación moderada.")]
+    if iq:
+        textos.append(f"Referencia oficial del INAMHI para Quito ({iq['fecha'][8:]}/{iq['fecha'][5:7]}): temperatura de {fmt(iq['temp_min'], 1)} a "
+                      f"{fmt(iq['temp_max'], 1)} °C e índice UV {iq['uv']}.")
+    parrafos(fig, textos, 0.17, tam=8.8, sep=0.006, ancho=110)
+    fig.text(0.06, 0.035, "Temperatura e índice UV de modelos abiertos (Open-Meteo), en el centro poblado de cada parroquia; verificación con las estaciones "
+             "CBDMQ (jul–oct 2026):\nerror medio de 1,3 °C en la máxima y 1,6 °C en la mínima. Categorías de UV de la Organización Mundial de la Salud.", fontsize=6.8, color=GRIS)
+    pdf.savefig(fig); plt.close(fig)
+    return textos[0] + (" " + textos[1] if iq else "")
+
+
+def bd_r(s):
+    return reparar(str(s)).replace("Bel_Quevedo", "Belisario Quevedo")
 
 
 def pct(v):
@@ -363,7 +429,7 @@ def pagina_verificacion(pdf, hoy, numero):
     if not v:
         return None
     fig = plt.figure(figsize=A4)
-    cabecera(fig, "5. Verificación del pronóstico del día anterior", numero, hoy)
+    cabecera(fig, "6. Verificación del pronóstico del día anterior", numero, hoy)
     fig.text(0.05, 0.895, f"Evaluación del pronóstico de precipitación para el {DIAS[ayer.weekday()]} {ayer.day} de {MESES[ayer.month - 1]} "
              f"frente a lo registrado por {list(v['resultados'].values())[0]['ind']['estaciones']} estaciones (CBDMQ y EPMAPS).", fontsize=8.5)
     filas = [("Precipitación media pronosticada (mm)", lambda i: fmt(i["media_pron"])),
@@ -428,9 +494,9 @@ def portada(pdf, hoy, numero, resumen):
     y = parrafos(fig, resumen, 0.73, tam=9.6, sep=0.014)
     fig.text(0.06, max(y - 0.02, 0.2), "Contenido", fontsize=12, weight="bold", color=AZUL)
     indice = ["1. Mapas de la lluvia pronosticada en el DMQ", "2. Pronóstico de lluvia por zona y periodo",
-              "3. Pronóstico de hoy por brigada distrital", "4. Lluvia del mes comparada con lo normal",
-              "5. Verificación del pronóstico del día anterior", "6. Emergencias de este mes en años anteriores",
-              "7. Lluvia y emergencias en días parecidos", "8. Imagen del satélite GOES"]
+              "3. Pronóstico de hoy por brigada distrital", "4. Temperatura y radiación UV por parroquia",
+              "5. Lluvia del mes comparada con lo normal", "6. Verificación del pronóstico del día anterior",
+              "7. Emergencias de este mes en años anteriores", "8. Lluvia y emergencias en días parecidos", "9. Imagen del satélite GOES"]
     yy = max(y - 0.045, 0.17)
     for i in indice:
         fig.text(0.08, yy, i, fontsize=9); yy -= 0.022
@@ -470,6 +536,11 @@ def generar(hoy=None):
         except Exception as ex:
             print("Sin pronóstico por zona:", str(ex)[:120])
         pagina_imagen(pdf, hoy, numero, "3. Pronóstico de lluvia de hoy por brigada distrital", por_dia.get("1"))
+        try:
+            texto_clima = pagina_clima(pdf, hoy, numero, capas)
+        except Exception as ex:
+            texto_clima = None
+            print("Sin temperatura y UV:", str(ex)[:120])
         r_mes = pagina_lluvia_mes(pdf, hoy, numero, mes, normales)
         try:
             verif = pagina_verificacion(pdf, hoy, numero)
@@ -501,6 +572,8 @@ def generar(hoy=None):
                        f". El periodo con más lluvia sería {z_max[1][2]} del {z_max[1][3]:%d/%m}.")
     elif textos_zonas:
         resumen.append("No se espera lluvia importante en la ciudad en los próximos 3 días.")
+    if texto_clima:
+        resumen.append(texto_clima)
     if verif:
         resumen.append(verif)
     if r_em:
