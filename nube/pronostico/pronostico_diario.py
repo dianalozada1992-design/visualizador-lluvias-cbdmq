@@ -57,7 +57,9 @@ def pedir(url, intentos=5, encabezados=None):
         try:
             req = urllib.request.Request(url, headers=encabezados or {})
             return json.load(urllib.request.urlopen(req, timeout=180))
-        except Exception:
+        except Exception as e:
+            detalle = e.read().decode("utf8", "replace")[:150] if hasattr(e, "read") else ""
+            print(f"Open-Meteo intento {i + 1}: {str(e)[:120]} {detalle}", flush=True)
             time.sleep(15 * (i + 1))
     raise RuntimeError("Sin respuesta: " + url[:100])
 
