@@ -52,15 +52,16 @@ NOMBRES = {"Bel_Quevedo": "Belisario Quevedo", "Ctro_Historico": "Centro Histór
 DIAS = 3
 
 
-def pedir(url, intentos=5, encabezados=None):
+def pedir(url, intentos=8, encabezados=None):
     for i in range(intentos):
         try:
             req = urllib.request.Request(url, headers=encabezados or {})
-            return json.load(urllib.request.urlopen(req, timeout=180))
+            # espera corta: desde GitHub la conexion a veces se queda colgada; es mejor reintentar pronto
+            return json.load(urllib.request.urlopen(req, timeout=25 if i < intentos - 1 else 90))
         except Exception as e:
             detalle = e.read().decode("utf8", "replace")[:150] if hasattr(e, "read") else ""
             print(f"Open-Meteo intento {i + 1}: {str(e)[:120]} {detalle}", flush=True)
-            time.sleep(15 * (i + 1))
+            time.sleep(5 * (i + 1))
     raise RuntimeError("Sin respuesta: " + url[:100])
 
 
