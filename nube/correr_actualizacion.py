@@ -41,6 +41,16 @@ def main():
     import actualizar
     actualizar.main()
     kv.subir_archivo("tiempo_real", os.path.join(DATOS, "tiempo_real.js"))
+    # registro de alertas enviadas por Telegram (lo usa el informe semanal)
+    try:
+        tr = json.loads(open(os.path.join(DATOS, "tiempo_real.js"), encoding="utf8").read().split("=", 1)[1].rstrip(";\n"))
+        nuevos = (tr.get("alertas") or {}).get("items_enviados") or []
+        if nuevos:
+            hist = json.loads(kv.leer("historial_alertas") or "[]") + nuevos
+            limite = (dt.datetime.now() - dt.timedelta(days=60)).strftime("%Y-%m-%d")
+            kv.guardar("historial_alertas", json.dumps([h for h in hist if h["hora"] >= limite], ensure_ascii=False))
+    except Exception as e:
+        print("No se pudo guardar el registro de alertas:", str(e)[:100])
     estado = os.path.join(ALERTAS, "estado_alertas.json")
     if os.path.exists(estado):
         kv.subir_archivo("estado_alertas", estado)

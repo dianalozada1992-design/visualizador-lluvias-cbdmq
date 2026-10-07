@@ -19,3 +19,4 @@ herramientas/github_local.json
 nube/boletin/emergencias.json
 nube/boletin/diario.js
 nube/boletin/salidas/
+nube/boletin/historial_alertas.json

@@ -143,7 +143,7 @@ def parrafos(fig, textos, y, x=0.06, ancho=95, tam=9.2, sep=0.012):
 
 def pagina_lluvia_mes(pdf, hoy, numero, mes, normales):
     fig = plt.figure(figsize=A4)
-    cabecera(fig, f"2. Lluvia de {MESES[hoy.month - 1]} hasta hoy comparada con lo normal", numero, hoy)
+    cabecera(fig, f"4. Lluvia de {MESES[hoy.month - 1]} hasta hoy comparada con lo normal", numero, hoy)
     filas = []
     for clave, v in mes.items():
         cod = normales["cbdmq"].get(v.get("estacion_cbdmq"), {}).get("codigo") if v["red"] == "CBDMQ" else clave
@@ -210,7 +210,7 @@ def pagina_emergencias_mes(pdf, hoy, numero, t):
     anios = list(range(2018, hoy.year + (0 if hoy.month > t.fecha.max().month or hoy.year > t.fecha.max().year else 1)))
     por_anio = del_mes.groupby(del_mes.fecha.dt.year).size().reindex(anios, fill_value=0)
     fig = plt.figure(figsize=A4)
-    cabecera(fig, f"7. Emergencias por lluvia en {MESES[m - 1]} de años anteriores", numero, hoy)
+    cabecera(fig, f"6. Emergencias por lluvia en {MESES[m - 1]} de años anteriores", numero, hoy)
     ax = fig.add_axes([0.08, 0.68, 0.86, 0.2])
     ax.bar(por_anio.index.astype(str), por_anio.values, color=AZUL_MEDIO)
     prom = por_anio.mean()
@@ -298,7 +298,7 @@ def dias_parecidos(t):
 def pagina_lluvia_emergencias(pdf, hoy, numero, t, pron):
     res, cortes, etiquetas = dias_parecidos(t)
     fig = plt.figure(figsize=A4)
-    cabecera(fig, "9. Lluvia y emergencias: ¿qué pasó en días parecidos?", numero, hoy)
+    cabecera(fig, "7. Lluvia y emergencias: ¿qué pasó en días parecidos?", numero, hoy)
     ax = fig.add_axes([0.1, 0.55, 0.82, 0.32])
     colores = ["#e3f4e6", VERDE_CLARO, "#5bbfa8", AZUL_MEDIO, AZUL]
     ax.bar(etiquetas, res.promedio.values, color=colores, edgecolor="#5d6d7e", lw=0.4)
@@ -340,7 +340,7 @@ def pagina_satelite(pdf, hoy, numero):
     if img is None:
         return False
     fig = plt.figure(figsize=A4)
-    cabecera(fig, "10. Imagen del satélite GOES (infrarrojo)", numero, hoy)
+    cabecera(fig, "8. Imagen del satélite GOES (infrarrojo)", numero, hoy)
     h, w = img.shape[:2]
     ax = fig.add_axes([0.04, 0.12, 0.92, 0.32]); ax.imshow(img); ax.axis("off"); ax.set_title("Norte de Sudamérica", loc="left", fontsize=8)
     ax2 = fig.add_axes([0.1, 0.47, 0.8, 0.42]); ax2.imshow(img[int(h * 0.3):int(h * 0.85), int(w * 0.02):int(w * 0.42)]); ax2.axis("off")
@@ -427,12 +427,10 @@ def portada(pdf, hoy, numero, resumen):
     fig.text(0.06, 0.76, "Resumen", fontsize=14, weight="bold", color=AZUL)
     y = parrafos(fig, resumen, 0.73, tam=9.6, sep=0.014)
     fig.text(0.06, max(y - 0.02, 0.2), "Contenido", fontsize=12, weight="bold", color=AZUL)
-    indice = ["1. Red de estaciones meteorológicas", "2. Lluvia del mes comparada con lo normal",
-              "3. Pronóstico de lluvia por periodo en cada zona (norte, centro, sur, valles y páramos)",
-              "4. Mapas de la lluvia pronosticada en el DMQ", "5. Verificación del pronóstico del día anterior (indicadores de desempeño)",
-              "6. Pronóstico de hoy por brigada distrital",
-              "7. Emergencias de este mes en años anteriores (por causa, tipo, brigada y parroquia)",
-              "8. Emergencias del año: comparación entre años", "9. Lluvia y emergencias en días parecidos", "10. Imagen del satélite GOES"]
+    indice = ["1. Mapas de la lluvia pronosticada en el DMQ", "2. Pronóstico de lluvia por zona y periodo",
+              "3. Pronóstico de hoy por brigada distrital", "4. Lluvia del mes comparada con lo normal",
+              "5. Verificación del pronóstico del día anterior", "6. Emergencias de este mes en años anteriores",
+              "7. Lluvia y emergencias en días parecidos", "8. Imagen del satélite GOES"]
     yy = max(y - 0.045, 0.17)
     for i in indice:
         fig.text(0.08, yy, i, fontsize=9); yy -= 0.022
@@ -461,30 +459,24 @@ def generar(hoy=None):
     cuerpo = io.BytesIO()
     import secciones_epmaps as se
     textos_zonas, datos_zonas, texto_mapas = {}, {}, None
+    r_an = None
     with PdfPages(cuerpo) as pdf:
-        try:
-            est = se.estaciones(capas)
-            se.pagina_red(pdf, hoy, numero, capas, est, MESES)
-        except Exception as ex:
-            est = None
-            print("Sin mapa de la red:", str(ex)[:120])
-        r_mes = pagina_lluvia_mes(pdf, hoy, numero, mes, normales)
-        try:
-            textos_zonas, datos_zonas = se.paginas_zonas(pdf, hoy, numero, est, MESES) if est else ({}, {})
-        except Exception as ex:
-            print("Sin pronóstico por zona:", str(ex)[:120])
         try:
             texto_mapas = se.pagina_mapas(pdf, hoy, numero, capas, MESES)
         except Exception as ex:
             print("Sin mapas de pronóstico:", str(ex)[:120])
         try:
+            textos_zonas, datos_zonas = se.pagina_tabla_zonas(pdf, hoy, numero, se.estaciones(capas), MESES)
+        except Exception as ex:
+            print("Sin pronóstico por zona:", str(ex)[:120])
+        pagina_imagen(pdf, hoy, numero, "3. Pronóstico de lluvia de hoy por brigada distrital", por_dia.get("1"))
+        r_mes = pagina_lluvia_mes(pdf, hoy, numero, mes, normales)
+        try:
             verif = pagina_verificacion(pdf, hoy, numero)
         except Exception as ex:
             verif = None
             print("Sin verificación del día anterior:", str(ex)[:120])
-        pagina_imagen(pdf, hoy, numero, "6. Pronóstico de lluvia de hoy por brigada distrital", por_dia.get("1"))
         r_em = pagina_emergencias_mes(pdf, hoy, numero, t)
-        r_an = pagina_emergencias_anio(pdf, hoy, numero, t, meta)
         previstos = pagina_lluvia_emergencias(pdf, hoy, numero, t, pron)
         pagina_satelite(pdf, hoy, numero)
     # resumen (portada) con lo calculado
@@ -499,8 +491,6 @@ def generar(hoy=None):
         g = list(pron.values())[0].sort_values("lluvia_mm", ascending=False).head(3)
         resumen.append(f"Pronóstico para hoy: lluvia media de {fmt(hoy_p[2])} mm en el DMQ; las parroquias con más lluvia esperada son "
                        + ", ".join(f"{reparar(r.parroquia)} ({fmt(r.lluvia_mm)} mm)" for r in g.itertuples()) + ".")
-        for rot, fecha, mm, cat, r in previstos[1:]:
-            resumen.append(f"{rot} ({DIAS[fecha.weekday()]} {fecha.day}): lluvia media de {fmt(mm)} mm en el DMQ.")
         resumen.append(f"En días con lluvias como las de hoy hubo en promedio {fmt(hoy_p[4].promedio, 1)} emergencias por día, y en "
                        f"{fmt(hoy_p[4].con_emergencia * 10, 0)} de cada 10 días hubo al menos una.")
     ciudad = {z: v for z, v in datos_zonas.items() if "Páramos" not in z}

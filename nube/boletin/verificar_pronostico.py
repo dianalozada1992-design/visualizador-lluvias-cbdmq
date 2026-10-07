@@ -60,7 +60,13 @@ def medido(fecha, capas):
     ini, fin = dt.datetime.combine(fecha, dt.time()), dt.datetime.combine(fecha, dt.time()) + dt.timedelta(days=1)
     out = []
     tel = [e for e in capas["telemetria"] if "Hidro" not in e["tipo"]]
-    datos = act.bajar_telemetria(tel, ini, fin)
+    datos = {}
+    for intento in range(3):   # si la telemetria no responde un momento, se reintenta
+        try:
+            datos = act.bajar_telemetria(tel, ini, fin)
+            break
+        except Exception as ex:
+            print("telemetría sin respuesta, reintento:", str(ex)[:80])
     for e in tel:
         for v in (datos.get(e["id"]) or {}).values():
             if v.get("var_nombre", "").lower().startswith("precip"):

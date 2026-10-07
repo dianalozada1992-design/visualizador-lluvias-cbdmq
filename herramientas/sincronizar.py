@@ -28,6 +28,7 @@ CODIGO = {
     "boletin/normales_lluvia.json": "nube/boletin/normales_lluvia.json",
     "boletin/secciones_epmaps.py": "nube/boletin/secciones_epmaps.py",
     "boletin/verificar_pronostico.py": "nube/boletin/verificar_pronostico.py",
+    "boletin/informe_semanal.py": "nube/boletin/informe_semanal.py",
     "visualizador/estilo.css": "sitio/estilo.css",
     "visualizador/comun.js": "sitio/comun.js",
     "visualizador/app.js": "sitio/app.js",
@@ -61,7 +62,8 @@ def paginas():
     m = quitar(m, r'\s*<script src="datos/diario\.js"></script>')
     m = quitar(m, r'\s*<script src="app_historico\.js[^"]*"></script>')
     m = m.replace(boton_h, '<a class="pestana" href="historico/">Histórico: lluvias y emergencias</a>')
-    enlace = '<a class="enlace-boletin" href="{}boletin/hoy" target="_blank">📄 Boletín de hoy (PDF)</a>\n    '
+    enlace = ('<a class="enlace-boletin" href="{0}boletin/hoy" target="_blank">📄 Boletín de hoy (PDF)</a>\n    '
+              '<a class="enlace-boletin" href="{0}informe/semana" target="_blank">📊 Informe semanal (PDF)</a>\n    ')
     m = m.replace('<span id="sesion"', enlace.format("") + '<span id="sesion"', 1)
     os.makedirs(os.path.join(RAIZ, "sitio", "historico"), exist_ok=True)
     open(os.path.join(RAIZ, "sitio", "index.html"), "w", encoding="utf8").write(m)

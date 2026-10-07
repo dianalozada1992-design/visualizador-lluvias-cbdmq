@@ -237,7 +237,7 @@ def pagina_mapas(pdf, hoy, numero, capas, meses):
         for poli in (g["coordinates"] if g["type"] == "MultiPolygon" else [g["coordinates"]]):
             dentro_dmq |= Path(poli[0]).contains_points(np.c_[LO.ravel(), LA.ravel()]).reshape(LO.shape)
     fig = plt.figure(figsize=(8.27, 11.69))
-    cabecera_simple(fig, "4. Mapas de la lluvia pronosticada en el DMQ", numero, hoy, meses)
+    cabecera_simple(fig, "1. Mapas de la lluvia pronosticada en el DMQ", numero, hoy, meses)
     resumen = []
     for i, (titulo, a, b) in enumerate(paneles):
         Z = np.array([suma_periodo(tabla.iloc[:, k], a, b) for k in range(len(puntos))]).reshape(len(lats), len(lons))
@@ -262,3 +262,62 @@ def pagina_mapas(pdf, hoy, numero, capas, meses):
     fig.text(0.06, 0.065, "\n".join(textwrap.wrap(txt, 110)), fontsize=8.5, va="top")
     pdf.savefig(fig); plt.close(fig)
     return txt
+
+
+def pagina_tabla_zonas(pdf, hoy, numero, est, meses):
+    """Una pagina: lluvia pronosticada por zona de la ciudad y periodo (promedio de sus estaciones y maximo)."""
+    import textwrap
+    pers = periodos(hoy)
+    zonas = [(z, b) for z, b in ZONAS if b != [None]]
+    elegidas = [(z, [e for e in est if e["brigada"] in b]) for z, b in zonas]
+    puntos = [(e["lat"], e["lon"]) for _, sel in elegidas for e in sel]
+    tabla = pronostico_puntos(puntos)
+    k, filas_prom, filas_max, textos, datos = 0, [], [], {}, {}
+    for zona, sel in elegidas:
+        V = []
+        for e in sel:
+            V.append([suma_periodo(tabla.iloc[:, k], a, b) for a, b, _ in pers]); k += 1
+        V = np.array(V) if V else np.zeros((1, len(pers)))
+        filas_prom.append(V.mean(axis=0)); filas_max.append(V.max(axis=0))
+        total = V.sum(axis=1)
+        nombre_zona = NOMBRE_ZONA.get(zona, zona.lower())
+        if total.max() < 1:
+            textos[zona] = f"No se espera lluvia importante en {nombre_zona} (menos de 1 mm)."
+        else:
+            j = int(np.unravel_index(V.argmax(), V.shape)[1]); a, b, r = pers[j]
+            textos[zona] = f"En {nombre_zona} se esperan entre {total.min():.0f} y {total.max():.0f} mm en 3 días; lo más fuerte, {r} del {a:%d/%m}."
+            datos[zona] = (float(total.min()), float(total.max()), r, a)
+    P, M = np.array(filas_prom), np.array(filas_max)
+    fig = plt.figure(figsize=(8.27, 11.69))
+    cabecera_simple(fig, "2. Pronóstico de lluvia por zona y periodo", numero, hoy, meses)
+    fig.text(0.05, 0.895, "Lluvia pronosticada (mm) en cada periodo: promedio de las estaciones de la zona y, entre paréntesis, el valor más alto.",
+             fontsize=8.5)
+    ax = fig.add_axes([0.2, 0.52, 0.76, 0.34])
+    cmap = ListedColormap(COLORES); norma = BoundaryNorm(CORTES, cmap.N)
+    ax.imshow(M, cmap=cmap, norm=norma, aspect="auto")
+    for i in range(M.shape[0]):
+        for j in range(M.shape[1]):
+            oscuro = M[i, j] >= 10
+            ax.text(j, i, f"{P[i, j]:.0f}\n({M[i, j]:.0f})", ha="center", va="center", fontsize=8.5, color="white" if oscuro else "#1b2631")
+    ax.set_yticks(range(len(zonas))); ax.set_yticklabels([z for z, _ in zonas], fontsize=9)
+    ax.set_xticks(range(len(pers)))
+    ax.set_xticklabels([f"{r}\n{DIAS_CORTO[a.weekday()]} {a:%d/%m}" for a, b, r in pers], fontsize=7)
+    ax.set_xticks(np.arange(-0.5, len(pers)), minor=True); ax.set_yticks(np.arange(-0.5, len(zonas)), minor=True)
+    ax.grid(which="minor", color="white", lw=2); ax.tick_params(which="minor", length=0)
+    cax = fig.add_axes([0.2, 0.47, 0.76, 0.012])
+    cb = fig.colorbar(plt.cm.ScalarMappable(norm=norma, cmap=cmap), cax=cax, orientation="horizontal", ticks=CORTES)
+    cb.set_label("Color según el valor más alto de la zona (mm)", fontsize=8); cb.ax.tick_params(labelsize=7)
+    fig.text(0.06, 0.42, "Resumen por zona", fontsize=10, weight="bold", color=AZUL)
+    y = 0.395
+    for zona, txt in textos.items():
+        for l in textwrap.wrap(f"• {zona}: {txt}", 110):
+            fig.text(0.06, y, l, fontsize=9, va="top"); y -= 0.02
+        y -= 0.008
+    fig.text(0.06, 0.1, "Zonas: norte (brigadas La Delicia, Calderón y Eugenio Espejo), centro (Manuela Sáenz), sur (Eloy Alfaro y Quitumbe)\n"
+             "y valles (Los Chillos y Tumbaco). Pronóstico de los modelos ICON, Météo-France y GFS corregidos por mapeo de cuantiles con las\n"
+             "estaciones del DMQ.", fontsize=7.5, color=GRIS)
+    pdf.savefig(fig); plt.close(fig)
+    return textos, datos
+
+
+DIAS_CORTO = ["lun", "mar", "mié", "jue", "vie", "sáb", "dom"]

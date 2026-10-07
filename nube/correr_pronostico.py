@@ -34,7 +34,7 @@ def guardar_emitido(fecha):
 def recuperar_emitidos(hoy):
     """Reconstruye los Excel de pronostico de los dos dias anteriores (para la verificacion del boletin)."""
     import pandas as pd
-    for k in (1, 2):
+    for k in range(1, 9):
         fecha = (hoy - dt.timedelta(days=k)).strftime("%Y-%m-%d")
         texto = kv.leer(f"pronostico_emitido_{fecha}")
         if not texto:
@@ -80,6 +80,32 @@ def main():
         kv.guardar_bytes("boletin_pdf", open(pdf, "rb").read(), "application/pdf")
         kv.guardar("boletin_pdf_fecha", hoy)
         print("Boletín de lluvias y emergencias guardado para el visualizador")
+    # los lunes: informe semanal de la semana anterior
+    if dt.date.today().weekday() == 0:
+        informe_semanal()
+
+
+def informe_semanal():
+    try:
+        kv.bajar_a_archivo("historial_alertas", os.path.join(NUBE, "boletin", "historial_alertas.json"))
+        sys.path.insert(0, os.path.join(NUBE, "boletin"))
+        sys.path.insert(0, os.path.join(NUBE, "alertas"))
+        import informe_semanal as isem
+        import alertas
+        import enviar_pronostico as ep
+        ruta, _ = isem.generar()
+        kv.guardar_bytes("informe_semanal_pdf", open(ruta, "rb").read(), "application/pdf")
+        kv.guardar("informe_semanal_fecha", os.path.basename(ruta)[16:26])
+        token, destinos = alertas.destinos_activos()
+        ini = dt.date.fromisoformat(os.path.basename(ruta)[16:26])
+        for d in destinos:
+            if d["_canal"] == "telegram" and "pronostico" in d.get("recibe", []):
+                ep.llamar(token, "sendDocument", {"chat_id": d["chat_id"],
+                          "caption": f"Informe semanal de lluvias y emergencias · semana del {ini:%d/%m} al {ini + dt.timedelta(days=6):%d/%m/%Y}"},
+                          {"document": (os.path.basename(ruta), open(ruta, "rb").read(), "application/pdf")})
+        print("Informe semanal enviado")
+    except Exception as e:
+        print("No se pudo generar el informe semanal:", str(e)[:200])
 
 
 if __name__ == "__main__":

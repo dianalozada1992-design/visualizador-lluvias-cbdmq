@@ -370,6 +370,8 @@ def procesar(salida, capas, prueba=False):
                 try:
                     enviar(c, token, texto)
                     resumen["enviadas"].append(c["nombre"])
+                    resumen["items_enviados"] = [{"hora": ahora.strftime("%Y-%m-%d %H:%M"), "tipo": i["tipo"], "nivel": i["nivel"],
+                                                  "parroquia": i.get("parroquia") or i.get("rio"), "mm_1h": i.get("mm_1h", 0)} for i in mios]
                     anotar(f"Enviado a {c['nombre']} ({c['_canal']}): {len(mios)} avisos")
                     break
                 except Exception as ex:
