@@ -36,6 +36,8 @@ ZONAS = [("Norte de Quito", ["La Delicia", "Calderón", "Eugenio Espejo"]),
          ("Sur de Quito", ["Eloy Alfaro", "Quitumbe"]),
          ("Valles", ["Los Chillos", "Tumbaco"]),
          ("Páramos y sistemas de agua (fuera del DMQ)", [None])]
+# extension completa del DMQ (lon -78,95 a -78,17; lat -0,59 a 0,28) con un margen
+EXT = (-78.99, -78.12, -0.63, 0.31)
 LUGARES = [("Quito", -0.20, -78.50), ("Calderón", -0.10, -78.42), ("Tumbaco", -0.21, -78.40), ("Conocoto", -0.29, -78.48),
            ("Nanegalito", 0.07, -78.68), ("Pifo", -0.23, -78.34), ("Guayllabamba", -0.06, -78.34), ("San Antonio", -0.01, -78.45),
            ("Lloa", -0.25, -78.58), ("Píntag", -0.37, -78.37)]
@@ -143,7 +145,7 @@ def pagina_red(pdf, hoy, numero, capas, est, meses):
         if red == "CBDMQ":
             for e in sel:
                 ax.annotate(e["nombre"].replace("CBDMQ ", ""), (e["lon"], e["lat"]), xytext=(4, 3), textcoords="offset points", fontsize=6.8, color=AZUL, zorder=7)
-    ax.set_xlim(-78.9, -78.15); ax.set_ylim(-0.6, 0.2); ax.set_aspect("equal")
+    ax.set_xlim(EXT[0], EXT[1]); ax.set_ylim(EXT[2], EXT[3]); ax.set_aspect("equal")
     ax.set_xticks([]); ax.set_yticks([])
     ax.legend(loc="lower left", fontsize=8, frameon=True)
     fig.text(0.06, 0.07, "El boletín usa las estaciones del CBDMQ (cada 5 minutos, API LI-COR) y la telemetría de EPMAPS (paraMH2O). "
@@ -212,8 +214,8 @@ def paginas_zonas(pdf, hoy, numero, est, meses):
 
 def pagina_mapas(pdf, hoy, numero, capas, meses):
     """Mapas de la lluvia pronosticada en una malla sobre el DMQ para 4 periodos."""
-    lats = np.round(np.arange(-0.6, 0.2001, 0.04), 3)
-    lons = np.round(np.arange(-78.9, -78.1499, 0.04), 3)
+    lats = np.round(np.arange(EXT[2], EXT[3] + 0.0001, 0.04), 3)
+    lons = np.round(np.arange(EXT[0], EXT[1] + 0.0001, 0.04), 3)
     puntos = [(la, lo) for la in lats for lo in lons]
     tabla = pronostico_puntos(puntos)
     d0 = pd.Timestamp(hoy.date())
@@ -222,20 +224,34 @@ def pagina_mapas(pdf, hoy, numero, capas, meses):
                ("Mañana, tarde (13:00–19:00)", d0 + pd.Timedelta(hours=37), d0 + pd.Timedelta(hours=43)),
                ("Pasado mañana, tarde (13:00–19:00)", d0 + pd.Timedelta(hours=61), d0 + pd.Timedelta(hours=67))]
     cmap = ListedColormap(COLORES); norma = BoundaryNorm(CORTES, cmap.N)
+    cmap.set_bad("white")
+    # malla fina (0,01 grados) para recortar la lluvia con el borde del DMQ: fuera del Distrito queda en blanco
+    from matplotlib.path import Path
+    rep = 4
+    lons_f = lons[0] + (np.arange(len(lons) * rep) - (rep - 1) / 2) * 0.04 / rep
+    lats_f = lats[0] + (np.arange(len(lats) * rep) - (rep - 1) / 2) * 0.04 / rep
+    LO, LA = np.meshgrid(lons_f, lats_f)
+    dentro_dmq = np.zeros(LO.shape, bool)
+    for f in capas["brigadas"]["features"]:
+        g = f["geometry"]
+        for poli in (g["coordinates"] if g["type"] == "MultiPolygon" else [g["coordinates"]]):
+            dentro_dmq |= Path(poli[0]).contains_points(np.c_[LO.ravel(), LA.ravel()]).reshape(LO.shape)
     fig = plt.figure(figsize=(8.27, 11.69))
     cabecera_simple(fig, "4. Mapas de la lluvia pronosticada en el DMQ", numero, hoy, meses)
     resumen = []
     for i, (titulo, a, b) in enumerate(paneles):
         Z = np.array([suma_periodo(tabla.iloc[:, k], a, b) for k in range(len(puntos))]).reshape(len(lats), len(lons))
         ax = fig.add_axes([0.05 + (i % 2) * 0.47, 0.5 - (i // 2) * 0.38, 0.43, 0.36])
-        im = ax.pcolormesh(lons, lats, Z, cmap=cmap, norm=norma, shading="nearest", zorder=1)
+        Zf = np.ma.masked_where(~dentro_dmq, np.kron(Z, np.ones((rep, rep))))
+        im = ax.pcolormesh(lons_f, lats_f, Zf, cmap=cmap, norm=norma, shading="nearest", zorder=1, edgecolors="face", linewidth=0, rasterized=True)
+        Z = np.where(np.kron(np.ones((1, 1)), Z) >= 0, Z, 0)
         dibujar_contorno(ax, capas, grosor_brigada=0.8)
         for nombre, la, lo in LUGARES:
             ax.plot(lo, la, "k.", ms=2.5, zorder=6); ax.text(lo + 0.01, la + 0.008, nombre, fontsize=5.8, zorder=6)
-        ax.set_xlim(lons[0], lons[-1]); ax.set_ylim(lats[0], lats[-1]); ax.set_aspect("equal")
+        ax.set_xlim(EXT[0], EXT[1]); ax.set_ylim(EXT[2], EXT[3]); ax.set_aspect("equal")
         ax.set_xticks([]); ax.set_yticks([])
         ax.set_title(f"{titulo}  ·  {a:%d/%m}", fontsize=8.5, color=AZUL, loc="left")
-        resumen.append((titulo, a, float(Z.max())))
+        resumen.append((titulo, a, float(Zf.max()) if Zf.count() else 0.0))
     cax = fig.add_axes([0.15, 0.115, 0.7, 0.014])
     cb = fig.colorbar(im, cax=cax, orientation="horizontal", ticks=CORTES)
     cb.set_label("Lluvia pronosticada en el periodo (mm)", fontsize=8); cb.ax.tick_params(labelsize=7)
