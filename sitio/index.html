@@ -6,7 +6,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Visualizador de lluvias - CBDMQ</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
-<link rel="stylesheet" href="estilo.css?v=20261007a">
+<link rel="stylesheet" href="estilo.css?v=20261007b">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script src="datos/capas.js"></script>
@@ -47,6 +47,12 @@
         <div class="grupo">
           <span class="etiqueta">Pronóstico</span>
           <div class="segmentado" id="sel-dia"></div>
+          <div class="segmentado" id="sel-var">
+            <button data-v="lluvia" class="activo">Lluvia</button>
+            <button data-v="tmax">Temp. máxima</button>
+            <button data-v="tmin">Temp. mínima</button>
+            <button data-v="uv">Índice UV</button>
+          </div>
         </div>
         <div class="grupo">
           <span class="etiqueta">Lluvia medida</span>
@@ -95,7 +101,7 @@
   corregidos con las estaciones del DMQ, base de emergencias del CBDMQ 2018–2026 y ríos de OpenStreetMap.
   · Elaborado por: Diana Lozada Ramos
 </footer>
-<script src="comun.js?v=20261007a"></script>
-<script src="app.js?v=20261007a"></script>
+<script src="comun.js?v=20261007b"></script>
+<script src="app.js?v=20261007b"></script>
 </body>
 </html>

@@ -243,20 +243,22 @@ def pronostico():
             dd[dia.strftime("%Y-%m-%d")] = {"media_mm": round(float(np.mean(list(tot.values()))), 1), "periodos": per,
                                              "mas_lluvia": [[pdi.NOMBRES.get(p, p), v] for p, v in top]}
         brig[b] = {"dias": dd, "horaria": [[k.strftime("%Y-%m-%d %H:00"), round(float(v), 2)] for k, v in hb.items()]}
-    clima = {}
-    try:
-        c = pdi.pronostico_clima(pts)
-        for r in c.itertuples():
-            clima.setdefault(r.parroquia, {})[r.dia.strftime("%Y-%m-%d")] = [r.temp_max_c, r.temp_min_c, r.indice_uv, r.radiacion_mj_m2]
-    except Exception as e:
-        print("Sin temperatura y UV:", str(e)[:100])
     return {"dias": [pd.Timestamp(d).strftime("%Y-%m-%d") for d in dias], "por_parroquia": por_parroquia, "brigadas": brig,
-            "clima": clima, "inamhi_quito": pdi.inamhi_quito(),
             "modelos": [calib[m]["nombre"] for m in calib["conjunto"]["modelos"]]}
 
 
+def clima():
+    """Temperatura maxima y minima, indice UV y radiacion por parroquia y dia (aparte del pronostico de lluvia)."""
+    import pronostico_diario as pdi
+    pts, _ = pdi.puntos_parroquias()
+    out = {}
+    for r in pdi.pronostico_clima(pts).itertuples():
+        out.setdefault(r.parroquia, {})[r.dia.strftime("%Y-%m-%d")] = [r.temp_max_c, r.temp_min_c, r.indice_uv, r.radiacion_mj_m2]
+    return {"por_parroquia": out, "inamhi_quito": pdi.inamhi_quito()}
+
+
 # tiempo maximo por fuente: si una no responde, se usan sus datos anteriores y la actualizacion termina igual
-LIMITE_S = {"cbdmq": 240, "telemetria": 240, "pronostico": 300}
+LIMITE_S = {"cbdmq": 240, "telemetria": 240, "pronostico": 300, "clima": 180}
 
 
 def con_limite(fn, segundos):
@@ -288,10 +290,10 @@ def main():
     except Exception:
         previo = {}
     hace3h = (t - dt.timedelta(hours=3)).strftime("%Y-%m-%d %H:%M")
-    for nombre, fn in [("cbdmq", lambda: cbdmq(capas, t)), ("telemetria", lambda: telemetria(capas, t)), ("pronostico", pronostico)]:
-        # el pronostico cambia poco: se recalcula cada 3 horas (asi no se pasa el limite gratuito de Open-Meteo)
-        if nombre == "pronostico" and previo.get("pronostico") and previo.get("pronostico_calculado", "") > hace3h:
-            salida["pronostico"], salida["pronostico_calculado"] = previo["pronostico"], previo["pronostico_calculado"]
+    for nombre, fn in [("cbdmq", lambda: cbdmq(capas, t)), ("telemetria", lambda: telemetria(capas, t)), ("pronostico", pronostico), ("clima", clima)]:
+        # el pronostico y la temperatura cambian poco: se recalculan cada 3 horas (asi no se pasa el limite gratuito de Open-Meteo)
+        if nombre in ("pronostico", "clima") and previo.get(nombre) and previo.get(nombre + "_calculado", "") > hace3h:
+            salida[nombre], salida[nombre + "_calculado"] = previo[nombre], previo[nombre + "_calculado"]
             continue
         try:
             r = con_limite(fn, LIMITE_S[nombre])
@@ -299,8 +301,8 @@ def main():
                 salida["lluvia_epmaps"], salida["rios"] = r
             else:
                 salida[nombre] = r
-            if nombre == "pronostico":
-                salida["pronostico_calculado"] = t.strftime("%Y-%m-%d %H:%M")
+            if nombre in ("pronostico", "clima"):
+                salida[nombre + "_calculado"] = t.strftime("%Y-%m-%d %H:%M")
             print("OK", nombre, flush=True)
         except Exception as e:
             salida["error_" + nombre] = str(e)[:200]
@@ -312,7 +314,7 @@ def main():
     salida["boletin_hoy"] = ({"generado": True, "hora": dt.datetime.fromtimestamp(os.path.getmtime(os.path.join(bol, archivos[0]))).strftime("%H:%M"),
                              "archivo": archivos[0]} if archivos else {"generado": False})
     # se conserva lo anterior si una fuente fallo
-    for k in ("cbdmq", "lluvia_epmaps", "rios", "pronostico"):
+    for k in ("cbdmq", "lluvia_epmaps", "rios", "pronostico", "clima"):
         if k not in salida and k in previo:
             salida[k] = previo[k]; salida.setdefault("fuentes_anteriores", []).append(k)
     # alertas por WhatsApp (lluvia de 2 mm, 10/20/30 mm en 1 hora y riesgo de crecida)

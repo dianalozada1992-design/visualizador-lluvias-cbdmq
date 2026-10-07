@@ -56,27 +56,51 @@ const capaEstaciones = L.layerGroup().addTo(mapa);
 const capaCaudal = L.layerGroup().addTo(mapa);
 
 // ---------------------------------------------------------------- pronostico
+// variables del mapa de pronostico: lluvia (verde a azul), temperatura (azules) e indice UV (morados, categorias OMS)
+const VARIABLES_PRON = {
+  lluvia: { titulo: "Lluvia pronosticada en el día", clases: CLASES_DIA },
+  tmax: { titulo: "Temperatura máxima del día", i: 0, clases: [[12, "#deebf7", "Menos de 12 °C"], [16, "#9ecae1", "12 a 16 °C"],
+    [20, "#4292c6", "16 a 20 °C"], [24, "#2171b5", "20 a 24 °C"], [Infinity, "#08306b", "24 °C o más"]] },
+  tmin: { titulo: "Temperatura mínima del día", i: 1, clases: [[4, "#deebf7", "Menos de 4 °C"], [7, "#9ecae1", "4 a 7 °C"],
+    [10, "#4292c6", "7 a 10 °C"], [13, "#2171b5", "10 a 13 °C"], [Infinity, "#08306b", "13 °C o más"]] },
+  uv: { titulo: "Índice UV máximo (OMS)", i: 2, clases: [[3, "#ece7f2", "Bajo (0–2)"], [6, "#bcbddc", "Moderado (3–5)"],
+    [8, "#9e9ac8", "Alto (6–7)"], [11, "#756bb1", "Muy alto (8–10)"], [Infinity, "#54278f", "Extremo (11+)"]] },
+};
+estado.variable = "lluvia";
+function climaDe(id) { return ((TR && TR.clima && TR.clima.por_parroquia) || {})[id] || {}; }
+function valorPron(pr, id, dia) {
+  const v = VARIABLES_PRON[estado.variable];
+  if (estado.variable === "lluvia") return (pr.por_parroquia[id] || {})[dia] || 0;
+  const c = climaDe(id)[dia]; return c ? c[v.i] : null;
+}
 function dibujarPronostico() {
   mapa.removeLayer(capaPronostico);
   const pr = TR && TR.pronostico;
   if (!pr || !estado.dia) { capaPronostico = L.geoJSON(null).addTo(mapa); return; }
+  const v = VARIABLES_PRON[estado.variable];
   capaPronostico = L.geoJSON(CAPAS.parroquias, {
-    style: f => { const v = (pr.por_parroquia[f.properties.id] || {})[estado.dia] || 0;
-      return { fillColor: color(v, CLASES_DIA), fillOpacity: .72, color: "#fff", weight: .8 }; },
+    style: f => { const x = valorPron(pr, f.properties.id, estado.dia);
+      return { fillColor: x == null ? "#ffffff" : color(x, v.clases), fillOpacity: x == null ? .3 : .72, color: "#fff", weight: .8 }; },
     onEachFeature: (f, l) => {
-      const p = f.properties, val = pr.por_parroquia[p.id] || {};
-      const cl = (pr.clima || {})[p.id] || {};
+      const p = f.properties, val = pr.por_parroquia[p.id] || {}, cl = climaDe(p.id);
       l.bindPopup(`<h3>${p.nombre}</h3><div>Brigada distrital: <b>${reparar(p.brigada)}</b></div>` +
-        `<table class="tabla-popup"><tr><th></th><th>Lluvia</th><th>Temp. máx / mín</th><th>Índice UV</th><th>Radiación</th></tr>` +
+        `<table class="tabla-popup"><thead><tr><th>Día</th><th>Lluvia</th><th>Temp. máx / mín</th><th>Índice UV</th><th>Radiación</th></tr></thead><tbody>` +
         pr.dias.map(d => { const c = cl[d]; return `<tr><td>${etiquetaDia(d).split(",")[0]}</td><td><b>${fmt(val[d])} mm</b></td>` +
-          (c ? `<td>${fmt(c[0], 0)} / ${fmt(c[1], 0)} °C</td><td>${fmt(c[2], 0)} · ${categoriaUV(c[2])}</td><td>${fmt(c[3], 0)} MJ/m²</td>` : "<td colspan=3>—</td>") + "</tr>"; }).join("") +
-        "</table>");
+          (c ? `<td>${fmt(c[0], 0)} / ${fmt(c[1], 0)} °C</td><td>${fmt(c[2], 0)} (${categoriaUV(c[2])})</td><td>${fmt(c[3], 0)} MJ/m²</td>` : "<td colspan=3>sin dato todavía</td>") + "</tr>"; }).join("") +
+        "</tbody></table>", { maxWidth: 460, minWidth: 380 });
       const ch = cl[estado.dia];
       l.bindTooltip(`${p.nombre}: ${fmt(val[estado.dia])} mm` + (ch ? ` · ${fmt(ch[0], 0)}/${fmt(ch[1], 0)} °C · UV ${fmt(ch[2], 0)}` : ""), { sticky: true });
     } }).addTo(mapa);
   capaPronostico.bringToBack();
-  leyenda("leyenda-pronostico", "Lluvia pronosticada en el día", CLASES_DIA);
+  leyenda("leyenda-pronostico", v.titulo, v.clases);
+  if (estado.variable !== "lluvia" && !(TR.clima && TR.clima.por_parroquia))
+    document.getElementById("leyenda-pronostico").insertAdjacentHTML("beforeend", "<span class='caja'>Temperatura y UV aún no disponibles; se calculan cada 3 horas.</span>");
 }
+document.querySelectorAll("#sel-var button").forEach(b => b.onclick = () => {
+  estado.variable = b.dataset.v;
+  document.querySelectorAll("#sel-var button").forEach(x => x.classList.toggle("activo", x === b));
+  dibujarPronostico();
+});
 function etiquetaDia(d) {
   const hoy = new Date(); hoy.setHours(0, 0, 0, 0);
   const f = new Date(d + "T00:00:00"); const dif = Math.round((f - hoy) / 864e5);
@@ -94,8 +118,7 @@ function selectorDias() {
 // indice UV por categorias de la OMS
 function categoriaUV(uv) { return uv == null ? "" : uv < 3 ? "bajo" : uv < 6 ? "moderado" : uv < 8 ? "alto" : uv < 11 ? "muy alto" : "extremo"; }
 function climaBrigada(b, dia) {
-  const pr = TR.pronostico; if (!pr.clima) return "";
-  const vals = CAPAS.parroquias.features.filter(f => reparar(f.properties.brigada) === reparar(b)).map(f => (pr.clima[f.properties.id] || {})[dia]).filter(Boolean);
+  const vals = CAPAS.parroquias.features.filter(f => reparar(f.properties.brigada) === reparar(b)).map(f => climaDe(f.properties.id)[dia]).filter(Boolean);
   if (!vals.length) return "";
   const tmax = Math.max(...vals.map(v => v[0])), tmin = Math.min(...vals.map(v => v[1])), uv = Math.max(...vals.map(v => v[2]));
   return `<div class="brig-clima">🌡️ ${fmt(tmin, 0)} a ${fmt(tmax, 0)} °C · ☀️ UV ${fmt(uv, 0)} (${categoriaUV(uv)})</div>`;
@@ -113,7 +136,7 @@ function dibujarBrigadas() {
       <div class="periodos">${d.periodos.map(p => `<div>${p.periodo}${iconoSVG(p.icono, p.noche)}<b>${fmt(p.mm)} mm</b></div>`).join("")}</div>
       <div class="brig-top">Más lluvia en: ${d.mas_lluvia.map(x => `${x[0]} (${fmt(x[1], 0)} mm)`).join(", ")}</div>${climaBrigada(b, dia)}</div>`;
   }).join("");
-  const iq = pr.inamhi_quito;
+  const iq = TR.clima && TR.clima.inamhi_quito;
   document.getElementById("nota-pronostico").textContent = `Lluvia: modelos ${pr.modelos.join(", ")}, corregidos con las estaciones del DMQ. ` +
     "Temperatura, índice UV y radiación: modelos verificados con las estaciones CBDMQ (error medio de 1,3 °C en la máxima y 1,6 °C en la mínima), " +
     "en el centro poblado de cada parroquia. " + (iq ? `Referencia oficial INAMHI para Quito (${iq.fecha}): ${fmt(iq.temp_min, 1)} a ${fmt(iq.temp_max, 1)} °C, índice UV ${iq.uv}. ` : "") +
