@@ -128,6 +128,7 @@ LEAME_CBDMQ = [
     "Fuente: plataforma LI-COR Cloud (sensores HOBO). Hora de Ecuador continental (UTC-5).",
     "Lluvia: milímetros caídos en cada intervalo de 5 minutos. Viento y ráfaga en km/h. Dirección del viento: grados desde el norte, de donde viene el viento.",
     "La estación Metropolitano tiene el sensor de viento sin funcionar (registra 0).",
+    "Del 4 al 8 de octubre de 2025 las estaciones registraron cada segundo (período de instalación); en este archivo quedan solo las lecturas originales de cada 5 minutos.",
     "'Accumulated Rain' es un valor que LI-COR entrega solo en algunos registros; se deja tal como llega (la lluvia de cada intervalo está en 'Lluvia (mm)').",
     "Una hoja por estación. Elaborado por: Diana Lozada Ramos - Dirección de Gestión de Riesgos, CBDMQ.",
 ]
