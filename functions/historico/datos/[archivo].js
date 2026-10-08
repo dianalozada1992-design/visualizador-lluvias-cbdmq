@@ -1,6 +1,6 @@
 // Entrega los datos del nivel 2 (historico de lluvias y emergencias) desde el almacen privado.
 // La carpeta /historico tiene su propia regla en Cloudflare Access: solo usuarios de nivel 2.
-const PERMITIDOS = { "historico.js": "historico", "diario.js": "diario" };
+const PERMITIDOS = { "historico.js": "historico", "diario.js": "diario", "estaciones_dias.js": "estaciones_dias" };
 
 export async function onRequest({ params, env }) {
   const clave = PERMITIDOS[params.archivo];

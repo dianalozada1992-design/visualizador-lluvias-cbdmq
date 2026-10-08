@@ -14,6 +14,7 @@ ORIGEN = os.path.join("D:" + os.sep, "Documentos", "Procesos_ de_Contratación",
 
 CODIGO = {
     "visualizador/actualizar.py": "nube/visualizador/actualizar.py",
+    "visualizador/dias_estaciones.py": "nube/visualizador/dias_estaciones.py",
     "pronostico/pronostico_diario.py": "nube/pronostico/pronostico_diario.py",
     "pronostico/boletin_visual.py": "nube/pronostico/boletin_visual.py",
     "pronostico/calibracion.json": "nube/pronostico/calibracion.json",
@@ -61,6 +62,7 @@ def paginas():
     m = quitar(html, r'\s*<!-- =+ PAGINA 2: HISTORICO =+ -->\s*<main id="historico".*?</main>')
     m = quitar(m, r'\s*<script src="datos/historico\.js"></script>')
     m = quitar(m, r'\s*<script src="datos/diario\.js"></script>')
+    m = quitar(m, r'\s*<script src="datos/estaciones_dias\.js"></script>')
     m = quitar(m, r'\s*<script src="app_historico\.js[^"]*"></script>')
     m = m.replace(boton_h, '<a class="pestana" href="historico/">Histórico: lluvias y emergencias</a>')
     enlace = ('<a class="enlace-boletin" href="{0}boletin/hoy" target="_blank">📄 Boletín de hoy (PDF)</a>\n    '

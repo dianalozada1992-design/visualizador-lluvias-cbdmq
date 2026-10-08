@@ -256,3 +256,87 @@ document.querySelectorAll("#sel-indicador button").forEach(b => b.onclick = () =
   estado.indicador = b.dataset.i; actualizarHistorico();
 });
 actualizarHistorico();
+
+// ---------------------------------------------------------------- estaciones hora por hora (ultimos 7 dias)
+(function horaPorHora() {
+  const ED = window.ESTACIONES_DIAS, selDia = document.getElementById("hh-dia"), selEst = document.getElementById("hh-est");
+  if (!selDia) return;
+  if (!ED || !ED.dias || !Object.keys(ED.dias).length) {
+    document.getElementById("hh-nota").textContent = "Todavía no hay días guardados: se guardan cada día después de la 1h00."; return;
+  }
+  const VARS = [["lluvia", "Lluvia (mm en cada hora)", "bar", "#2f86c8"], ["temp", "Temperatura (°C)", "line", "#1f3f73"],
+    ["hr", "Humedad relativa (%)", "line", "#5bbfa8"], ["viento", "Viento (km/h)", "line", "#2ca25f"],
+    ["rad", "Radiación solar (W/m²)", "line", "#756bb1"], ["presion", "Presión atmosférica (hPa)", "line", "#4292c6"]];
+  const vals = a => (a || []).filter(x => x !== null && x !== undefined);
+  const suma = a => vals(a).length ? vals(a).reduce((s, x) => s + x, 0) : null;
+  const max = a => vals(a).length ? Math.max(...vals(a)) : null;
+  const min = a => vals(a).length ? Math.min(...vals(a)) : null;
+  const prom = a => vals(a).length ? suma(a) / vals(a).length : null;
+  const horaDe = (a, f) => { const m = f(a); return m === null ? "" : String(a.indexOf(m)).padStart(2, "0") + "h00"; };
+  const dias = Object.keys(ED.dias).sort().reverse();
+  selDia.innerHTML = dias.map(d => `<option value="${d}">${fechaLarga(d)}</option>`).join("");
+  const est = () => ED.dias[selDia.value].estaciones;
+  const graf = {};
+  const ordenHH = { col: "lluvia", asc: false };
+
+  function resumen(e) {
+    const v = e.v;
+    return { nombre: e.nombre, red: e.red, lluvia: suma(v.lluvia), max1h: max(v.lluvia), tmax: max(v.temp), tmin: min(v.temp),
+             hr: prom(v.hr), viento: max(v.viento_max || v.viento), rad: max(v.rad), presion: prom(v.presion) };
+  }
+  function llenarEstaciones() {
+    const antes = selEst.value, lista = est();
+    selEst.innerHTML = ["CBDMQ", "EPMAPS"].map(r => `<optgroup label="${r}">` +
+      lista.filter(e => e.red === r).map(e => `<option>${e.nombre}</option>`).join("") + "</optgroup>").join("");
+    if (lista.some(e => e.nombre === antes)) selEst.value = antes;
+  }
+  function graficos() {
+    const e = est().find(x => x.nombre === selEst.value); if (!e) return;
+    Object.values(graf).forEach(g => g.destroy());
+    const presentes = VARS.filter(x => e.v[x[0]]);
+    document.getElementById("hh-graficos").innerHTML = presentes.map(x =>
+      `<div class="hh-g"><b>${x[1]}</b><div class="grafico-hh"><canvas id="hh-${x[0]}"></canvas></div></div>`).join("");
+    const horas = [...Array(24).keys()].map(h => String(h).padStart(2, "0") + "h");
+    presentes.forEach(([k, titulo, tipo, col]) => {
+      const ds = [{ type: tipo, label: k === "viento" ? "Promedio de la hora" : titulo, data: e.v[k], backgroundColor: col, borderColor: col,
+                    borderWidth: tipo === "line" ? 2 : 0, pointRadius: tipo === "line" ? 1.5 : 0 }];
+      if (k === "viento" && e.v.viento_max)
+        ds.push({ type: "line", label: e.red === "CBDMQ" ? "Ráfaga máxima" : "Máximo de la hora", data: e.v.viento_max, borderColor: col,
+                  borderDash: [4, 3], borderWidth: 1.5, pointRadius: 0 });
+      graf[k] = new Chart(document.getElementById("hh-" + k), { data: { labels: horas, datasets: ds },
+        options: { animation: false, maintainAspectRatio: false, interaction: { mode: "index", intersect: false },
+          plugins: { legend: { display: k === "viento", labels: { boxWidth: 10, font: { size: 10 } } } },
+          scales: { x: { ticks: { maxTicksLimit: 12, font: { size: 9 } } }, y: { beginAtZero: k === "lluvia", ticks: { font: { size: 9 } } } } } });
+    });
+    const r = resumen(e), v = e.v, partes = [];
+    if (v.lluvia) partes.push(r.lluvia > 0.2 ? `lluvia total de <b>${fmt(r.lluvia)} mm</b> (la hora más intensa, ${horaDe(v.lluvia, max)}: ${fmt(r.max1h)} mm)` : "<b>sin lluvia</b>");
+    if (v.temp) partes.push(`temperatura entre <b>${fmt(r.tmin)} °C</b> (${horaDe(v.temp, min)}) y <b>${fmt(r.tmax)} °C</b> (${horaDe(v.temp, max)})`);
+    if (v.hr) partes.push(`humedad promedio de ${fmt(r.hr, 0)} %`);
+    if (v.viento) partes.push(`viento máximo de ${fmt(r.viento, 0)} km/h (${horaDe(v.viento_max || v.viento, max)})`);
+    if (v.presion) partes.push(`presión promedio de ${fmt(r.presion, 1)} hPa`);
+    document.getElementById("hh-resumen").innerHTML = `<b>${e.nombre}</b>, ${fechaLarga(selDia.value)}: ${partes.join("; ")}.`;
+  }
+  function tabla() {
+    const filas = est().map(resumen);
+    const c = ordenHH.col;
+    filas.sort((a, b) => c === "nombre" ? a.nombre.localeCompare(b.nombre) * (ordenHH.asc ? 1 : -1)
+      : ((a[c] ?? -1e9) - (b[c] ?? -1e9)) * (ordenHH.asc ? 1 : -1));
+    const COLS = [["nombre", "Estación"], ["lluvia", "Lluvia total (mm)"], ["max1h", "Máx. en 1 hora (mm)"], ["tmax", "Temp. máx. (°C)"],
+      ["tmin", "Temp. mín. (°C)"], ["hr", "Humedad prom. (%)"], ["viento", "Viento máx. (km/h)"], ["rad", "Radiación máx. (W/m²)"], ["presion", "Presión prom. (hPa)"]];
+    const dec = { hr: 0, viento: 0, rad: 0 };
+    document.getElementById("hh-tabla").innerHTML = "<thead><tr>" + COLS.map(([k, t]) => `<th data-c="${k}">${t}${k === c ? (ordenHH.asc ? " ▲" : " ▼") : ""}</th>`).join("") +
+      "</tr></thead><tbody>" + filas.map(f => `<tr data-n="${f.nombre}"${f.nombre === selEst.value ? ' class="sel"' : ""}><td>${f.nombre}</td>` +
+      COLS.slice(1).map(([k]) => `<td>${fmt(f[k], dec[k] ?? 1)}</td>`).join("") + "</tr>").join("") + "</tbody>";
+    document.querySelectorAll("#hh-tabla th").forEach(th => th.onclick = () => {
+      ordenHH.asc = ordenHH.col === th.dataset.c ? !ordenHH.asc : th.dataset.c === "nombre";
+      ordenHH.col = th.dataset.c; tabla();
+    });
+    document.querySelectorAll("#hh-tabla tbody tr").forEach(tr => tr.onclick = () => {
+      selEst.value = tr.dataset.n; graficos(); tabla();
+      document.getElementById("hh-resumen").scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  }
+  selDia.onchange = () => { llenarEstaciones(); graficos(); tabla(); };
+  selEst.onchange = () => { graficos(); tabla(); };
+  llenarEstaciones(); graficos(); tabla();
+})();

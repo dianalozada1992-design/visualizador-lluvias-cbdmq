@@ -35,6 +35,21 @@ def preparar():
         os.utime(ruta, (b["ts"], b["ts"]))
 
 
+def dia_anterior_estaciones(actualizar):
+    """Datos hora por hora del dia anterior en cada estacion (pestaña Historico). Una sola vez al dia, despues de la 1h00."""
+    ahora = dt.datetime.now()
+    ayer = (ahora - dt.timedelta(days=1)).strftime("%Y-%m-%d")
+    texto = kv.leer("estaciones_dias")
+    previo = json.loads(texto.split("=", 1)[1].rstrip(";\n")) if texto else {}
+    if ahora.hour < 1 or ayer in previo.get("dias", {}):
+        return
+    import dias_estaciones
+    capas = json.loads(open(os.path.join(DATOS, "capas.js"), encoding="utf8").read().split("=", 1)[1].rstrip(";\n"))
+    datos = actualizar.con_limite(lambda: dias_estaciones.agregar(previo, capas, ayer), 240)
+    kv.guardar("estaciones_dias", dias_estaciones.texto(datos))
+    print("Dia anterior de las estaciones guardado:", ayer, len(datos["dias"][ayer]["estaciones"]), "estaciones")
+
+
 def main():
     preparar()
     sys.path.insert(0, os.path.join(NUBE, "visualizador"))
@@ -51,6 +66,10 @@ def main():
             kv.guardar("historial_alertas", json.dumps([h for h in hist if h["hora"] >= limite], ensure_ascii=False))
     except Exception as e:
         print("No se pudo guardar el registro de alertas:", str(e)[:100])
+    try:
+        dia_anterior_estaciones(actualizar)
+    except Exception as e:
+        print("No se pudo guardar el dia anterior de las estaciones:", str(e)[:150])
     estado = os.path.join(ALERTAS, "estado_alertas.json")
     if os.path.exists(estado):
         kv.subir_archivo("estado_alertas", estado)

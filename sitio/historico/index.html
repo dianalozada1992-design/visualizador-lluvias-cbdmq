@@ -6,12 +6,13 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Visualizador de lluvias - CBDMQ</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
-<link rel="stylesheet" href="../estilo.css?v=20261008b">
+<link rel="stylesheet" href="../estilo.css?v=20261008c">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script src="../datos/capas.js"></script>
 <script src="datos/historico.js"></script>
 <script src="datos/diario.js"></script>
+<script src="datos/estaciones_dias.js"></script>
 </head>
 <body>
 <header class="cabecera">
@@ -40,6 +41,7 @@
   <div class="filtros">
     <label>Desde <input type="date" id="f-desde"></label>
     <label>Hasta <input type="date" id="f-hasta"></label>
+    <a class="enlace-hh" href="#sec-horaria">⏱️ Estaciones hora por hora (últimos 7 días) ↓</a>
     <div class="rapidos">
       <button data-r="dia">Solo un día</button>
       <button data-r="semana">Última semana</button>
@@ -99,6 +101,19 @@
       <div id="barrios" class="lista"></div>
     </section>
   </div>
+  <section class="tarjeta separado" id="sec-horaria">
+    <h2>Estaciones hora por hora (últimos 7 días)</h2>
+    <p class="sub" id="hh-nota">Lo que midió cada estación del CBDMQ y de EPMAPS, hora por hora. Elija el día y la estación; abajo está el resumen del día en todas las estaciones.</p>
+    <div class="filtros hh-filtros">
+      <label>Día <select id="hh-dia"></select></label>
+      <label>Estación <select id="hh-est"></select></label>
+    </div>
+    <p class="hh-resumen" id="hh-resumen"></p>
+    <div class="rejilla-hh" id="hh-graficos"></div>
+    <h2 class="separado">Resumen del día en todas las estaciones</h2>
+    <p class="sub">Haga clic en una fila para ver sus gráficos. Clic en los títulos para ordenar.</p>
+    <div class="tabla-contenedor"><table id="hh-tabla"></table></div>
+  </section>
 </main>
 
 <footer class="pie">
@@ -106,7 +121,7 @@
   corregidos con las estaciones del DMQ, base de emergencias del CBDMQ 2018–2026 y ríos de OpenStreetMap.
   · Elaborado por: Diana Lozada Ramos
 </footer>
-<script src="../comun.js?v=20261008b"></script>
-<script src="../app_historico.js?v=20261008b"></script>
+<script src="../comun.js?v=20261008c"></script>
+<script src="../app_historico.js?v=20261008c"></script>
 </body>
 </html>
