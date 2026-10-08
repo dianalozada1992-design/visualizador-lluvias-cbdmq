@@ -86,6 +86,58 @@ def resumen_lluvia(s, t):
             "horaria": [[k.strftime("%Y-%m-%d %H:00"), round(float(v), 1)] for k, v in s.resample("h").sum().tail(24).items()]}
 
 
+# ---------------------------------------------------------------- lectura actual de los demas sensores (la bateria no se muestra)
+SENSORES_LICOR = {"Temperature": "temp", "RH": "hr", "Dew Point": "rocio", "Solar Radiation": "rad", "Wind speed": "viento",
+                  "Air Velocity": "viento", "Gust Speed": "rafaga", "Wind Direction": "dir"}
+SIN_VIENTO = {"Metropolitano"}  # su sensor de viento no registra (siempre 0)
+VARS_EPMAPS = {"temperatura ambiente": "temp", "humedad relativa": "hr", "radiaci": "rad", "presi": "presion",
+               "humedad de suelo": "hsuelo", "temperatura de suelo": "tsuelo"}
+DECIMALES = {"rad": 0, "dir": 0, "presion": 1}
+
+
+def reciente(hora, t):
+    """Solo lecturas de las ultimas 3 horas (una estacion apagada no debe mostrar un valor viejo como actual)."""
+    return hora and hora >= (t - dt.timedelta(hours=3)).strftime("%Y-%m-%d %H:%M")
+
+
+def actuales_licor(datos, nombre, t):
+    ult = {}
+    for x in datos:
+        k = SENSORES_LICOR.get(x["sensor_measurement_type"])
+        if k and x["value"] is not None and (k not in ult or x["timestamp"] > ult[k][1]):
+            ult[k] = (x["value"], x["timestamp"])
+    out = {}
+    for k, (v, ts) in ult.items():
+        if nombre in SIN_VIENTO and k in ("viento", "rafaga", "dir"):
+            continue
+        hora = (pd.Timestamp(ts.replace("Z", "")) - pd.Timedelta(hours=5)).strftime("%Y-%m-%d %H:%M")
+        if reciente(hora, t):
+            out[k] = [round(float(v), DECIMALES.get(k, 1)), hora]
+    return out
+
+
+def actuales_epmaps(data, t):
+    out, hora_est = {}, ""
+    for v in data.values():
+        f = (v.get("datos") or {}).get("fecha")
+        if f:
+            hora_est = max(hora_est, f[-1].replace("T", " ")[:16])
+    for v in data.values():
+        n, d = v.get("var_nombre", "").lower(), v.get("datos") or {}
+        try:
+            if n.startswith("viento") and d.get("velocidad"):  # el viento viene sin fecha propia, en m/s
+                out["viento"] = [round(float(d["velocidad"][-1]) * 3.6, 1), hora_est]
+                if d.get("direccion"):
+                    out["dir"] = [round(float(d["direccion"][-1])), hora_est]
+                continue
+            k = next((c for p, c in VARS_EPMAPS.items() if n.startswith(p)), None)
+            if k and d.get("valor"):
+                out[k] = [round(float(d["valor"][-1]), DECIMALES.get(k, 1)), d["fecha"][-1].replace("T", " ")[:16]]
+        except (TypeError, ValueError):
+            pass
+    return {k: v for k, v in out.items() if reciente(v[1], t)}
+
+
 def resumen_rio(s, t, umbral):
     if s.empty:
         return None
@@ -131,6 +183,13 @@ def telemetria(capas, t):
                 r = resumen_rio(serie(v), t, e.get("umbral_" + var))
                 if r:
                     rios.append({**base, "variable": nombre_var, "unidad": v.get("var_unidad", ""), **r})
+        act = actuales_epmaps(data, t)
+        if act and "Hidro" not in e["tipo"]:
+            ent = next((x for x in reversed(lluvia) if x["codigo"] == e["codigo"]), None)
+            if ent is None:
+                ent = {**base, "sin_datos": True}
+                lluvia.append(ent)
+            ent["sensores"] = act
     # condiciones propicias para lluvia en las estaciones climatologicas (humedad + temperatura)
     con_clima = [x for x in lluvia if x.get("_clima", {}).get("hr") is not None and x["_clima"].get("t") is not None]
     try:
@@ -198,7 +257,8 @@ def cbdmq(capas, t):
                                                modelos.get(nombre), t)
                 except Exception:
                     pass
-            out.append({**base, **(r or {"sin_datos": True}), "temperatura": round(temp[-1], 1) if temp else None, "condiciones": cond})
+            out.append({**base, **(r or {"sin_datos": True}), "temperatura": round(temp[-1], 1) if temp else None, "condiciones": cond,
+                        "sensores": actuales_licor(d["data"], nombre, t)})
         except Exception:
             out.append({**base, "sin_datos": True})
     # si una estacion fallo, se usa su ultimo dato bueno (marcado como anterior)

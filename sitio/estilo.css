@@ -138,3 +138,6 @@ a.pestana { text-decoration: none; display: inline-block; }
 .tabla-popup td { white-space: nowrap; }
 #sel-var { margin-left: 6px; }
 .nota-popup { font-size: 10.5px; color: #5b6b80; margin-top: 4px; max-width: 400px; }
+.etq-sensor { background: rgba(255,255,255,.88); border: 1px solid #c9d3e0; border-radius: 4px; padding: 0 4px; font-size: 10.5px; font-weight: 700; color: #1f3f73; box-shadow: none; }
+.etq-sensor::before { display: none; }
+.segmentado.apagado { opacity: .45; }

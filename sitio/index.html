@@ -6,7 +6,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Visualizador de lluvias - CBDMQ</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
-<link rel="stylesheet" href="estilo.css?v=20261008a">
+<link rel="stylesheet" href="estilo.css?v=20261008b">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script src="datos/capas.js"></script>
@@ -63,6 +63,17 @@
             <button data-v="lluvia_24h">24 horas</button>
           </div>
         </div>
+        <div class="grupo">
+          <span class="etiqueta">Sensor</span>
+          <div class="segmentado" id="sel-sensor">
+            <button data-s="lluvia" class="activo">Lluvia</button>
+            <button data-s="temp">Temperatura</button>
+            <button data-s="hr">Humedad</button>
+            <button data-s="rad">Radiación</button>
+            <button data-s="viento">Viento</button>
+            <button data-s="presion">Presión</button>
+          </div>
+        </div>
         <div class="grupo capas">
           <label><input type="checkbox" id="ver-estaciones" checked> Estaciones</label>
           <label><input type="checkbox" id="ver-rios" checked> Ríos</label>
@@ -101,7 +112,7 @@
   corregidos con las estaciones del DMQ, base de emergencias del CBDMQ 2018–2026 y ríos de OpenStreetMap.
   · Elaborado por: Diana Lozada Ramos
 </footer>
-<script src="comun.js?v=20261008a"></script>
-<script src="app.js?v=20261008a"></script>
+<script src="comun.js?v=20261008b"></script>
+<script src="app.js?v=20261008b"></script>
 </body>
 </html>

@@ -145,14 +145,45 @@ function dibujarBrigadas() {
 
 // ---------------------------------------------------------------- estaciones con lluvia
 function estacionesTodas() { return TR ? [...(TR.cbdmq || []), ...(TR.lluvia_epmaps || [])].filter(e => e.lat) : []; }
+// ---------------------------------------------------------------- demas sensores (lectura del momento)
+const SENSORES = {
+  temp: { nombre: "Temperatura", u: "°C", d: 1, clases: [[8, "#deebf7", "Menos de 8 °C"], [12, "#9ecae1", "8 a 12 °C"], [16, "#4292c6", "12 a 16 °C"],
+    [20, "#2171b5", "16 a 20 °C"], [Infinity, "#08306b", "20 °C o más"]] },
+  hr: { nombre: "Humedad relativa", u: "%", d: 0, clases: [[50, "#e3f4e6", "Menos de 50 %"], [70, "#a8dcae", "50 a 70 %"], [85, "#5bbfa8", "70 a 85 %"],
+    [95, "#2f86c8", "85 a 95 %"], [Infinity, "#173f8f", "95 % o más"]] },
+  rad: { nombre: "Radiación solar", u: "W/m²", d: 0, clases: [[50, "#f2f0f7", "Menos de 50 (noche o muy nublado)"], [300, "#cbc9e2", "50 a 300"],
+    [600, "#9e9ac8", "300 a 600"], [900, "#756bb1", "600 a 900"], [Infinity, "#54278f", "900 o más"]] },
+  viento: { nombre: "Viento", u: "km/h", d: 0, clases: [[5, "#edf8fb", "Calma (menos de 5)"], [10, "#b2e2e2", "5 a 10"], [20, "#66c2a4", "10 a 20"],
+    [30, "#2ca25f", "20 a 30"], [Infinity, "#006d2c", "30 o más"]] },
+  presion: { nombre: "Presión atmosférica", u: "hPa", d: 0, clases: [[680, "#deebf7", "Menos de 680"], [710, "#9ecae1", "680 a 710"],
+    [740, "#4292c6", "710 a 740"], [770, "#2171b5", "740 a 770"], [Infinity, "#08306b", "770 o más"]] },
+};
+const NOMBRES_SENSOR = { temp: ["Temperatura", "°C", 1], hr: ["Humedad relativa", "%", 0], rocio: ["Punto de rocío", "°C", 1], rad: ["Radiación solar", "W/m²", 0],
+  viento: ["Viento", "km/h", 0], rafaga: ["Ráfaga", "km/h", 0], dir: ["Dirección del viento", "°", 0], presion: ["Presión atmosférica", "hPa", 0],
+  hsuelo: ["Humedad del suelo", "%", 0], tsuelo: ["Temperatura del suelo", "°C", 1] };
+estado.sensor = "lluvia";
+const rumbo = g => ["N", "NE", "E", "SE", "S", "SO", "O", "NO"][Math.round(g / 45) % 8];
+function textoSensor(e, k) {
+  const v = e.sensores[k][0], S = SENSORES[k];
+  return k === "viento" && e.sensores.dir ? `${fmt(v, 0)} km/h del ${rumbo(e.sensores.dir[0])}` : `${fmt(v, S.d)} ${S.u}`;
+}
+function tablaSensores(e) {
+  const s = e.sensores; if (!s || !Object.keys(s).length) return "";
+  const filas = Object.keys(NOMBRES_SENSOR).filter(k => s[k]).map(k => {
+    const [n, u, d] = NOMBRES_SENSOR[k];
+    return `<tr><td>${n}</td><td><b>${k === "dir" ? `${fmt(s[k][0], 0)}° (viene del ${rumbo(s[k][0])})` : `${fmt(s[k][0], d)} ${u}`}</b></td></tr>`;
+  }).join("");
+  const hora = Object.values(s).map(x => x[1]).sort().pop();
+  return `<table class="tabla-popup"><thead><tr><th>Sensor</th><th>Lectura de las ${hora.slice(11, 16)}</th></tr></thead><tbody>${filas}</tbody></table>`;
+}
 function popupEstacion(e) {
   const id = "g" + Math.random().toString(36).slice(2);
   const html = `<h3>${e.red === "CBDMQ" ? "CBDMQ " + e.nombre : e.codigo + " " + e.nombre}</h3>
-    <div>${e.red} · ${e.tipo}</div>` + (e.sin_datos ? "<div><i>Sin datos recientes</i></div>" :
+    <div>${e.red} · ${e.tipo}</div>` + (e.sin_datos ? `<div><i>Sin datos de lluvia recientes</i></div>${tablaSensores(e)}` :
     `<div>Última hora: <b>${fmt(e.lluvia_1h)} mm</b> · 3 h: <b>${fmt(e.lluvia_3h)} mm</b></div>
      <div>Hoy: <b>${fmt(e.lluvia_hoy)} mm</b> · 24 h: <b>${fmt(e.lluvia_24h)} mm</b></div>
      <div class="sub">Último dato: ${e.ultimo_dato}${e.retraso_min > 90 ? " (con retraso)" : ""}${e.dato_anterior ? " · la última consulta falló, se muestra el dato anterior" : ""}</div>
-     <div class="popup-grafico"><canvas id="${id}"></canvas></div>`);
+     ${tablaSensores(e)}<div class="popup-grafico"><canvas id="${id}"></canvas></div>`);
   return { html, id };
 }
 function graficoPopup(id, serie, tipo, etiqueta, umbral) {
@@ -168,7 +199,7 @@ function graficoPopup(id, serie, tipo, etiqueta, umbral) {
 function dibujarEstaciones() {
   capaEstaciones.clearLayers();
   const v = estado.ventana, clases = CLASES_AHORA[v];
-  estacionesTodas().forEach(e => {
+  if (estado.sensor !== "lluvia") dibujarSensor(); else estacionesTodas().forEach(e => {
     const val = e.sin_datos ? null : e[v];
     const radio = e.red === "CBDMQ" ? 9 : 7;
     const m = L.circleMarker([e.lat, e.lon], { radius: val > 0 ? radio + Math.min(val, 20) / 3 : radio,
@@ -179,9 +210,11 @@ function dibujarEstaciones() {
     e._marcador = m;
     capaEstaciones.addLayer(m);
   });
-  leyenda("leyenda-estaciones", `Lluvia medida ${NOMBRE_VENTANA[v]} (mm)`, clases, true);
-  document.getElementById("leyenda-estaciones").insertAdjacentHTML("beforeend",
-    '<span class="caja"><i class="circulo" style="border:2.5px solid #7d3c98"></i>CBDMQ</span><span class="caja"><i class="circulo" style="border:1.5px solid #1f3f73"></i>EPMAPS</span><span class="caja"><i class="circulo" style="border:1px dashed #1f3f73;background:#fff"></i>Sin datos</span>');
+  if (estado.sensor === "lluvia") {
+    leyenda("leyenda-estaciones", `Lluvia medida ${NOMBRE_VENTANA[v]} (mm)`, clases, true);
+    document.getElementById("leyenda-estaciones").insertAdjacentHTML("beforeend",
+      '<span class="caja"><i class="circulo" style="border:2.5px solid #7d3c98"></i>CBDMQ</span><span class="caja"><i class="circulo" style="border:1.5px solid #1f3f73"></i>EPMAPS</span><span class="caja"><i class="circulo" style="border:1px dashed #1f3f73;background:#fff"></i>Sin datos</span>');
+  }
   const lista = estacionesTodas().filter(e => !e.sin_datos && e[v] > 0).sort((a, b) => b[v] - a[v]);
   document.getElementById("sub-lloviendo").textContent = lista.length ? `${lista.length} estaciones registraron lluvia ${NOMBRE_VENTANA[v]}.` : `Ninguna estación registró lluvia ${NOMBRE_VENTANA[v]}.`;
   const cont = document.getElementById("lista-lluvia");
@@ -189,6 +222,45 @@ function dibujarEstaciones() {
       <span>${e.red === "CBDMQ" ? "CBDMQ " + e.nombre : e.nombre}<small>${e.red} · último dato ${e.ultimo_dato.slice(11)}</small></span><span class="mm">${fmt(e[v])} mm</span></div>`).join("");
   cont.querySelectorAll(".fila").forEach(f => f.onclick = () => { const e = lista[+f.dataset.i]; mapa.setView([e.lat, e.lon], 13); e._marcador.fire("click"); });
 }
+
+// estaciones pintadas con la lectura actual del sensor elegido y su valor escrito al lado
+function dibujarSensor() {
+  const k = estado.sensor, S = SENSORES[k];
+  const lista = estacionesTodas().filter(e => e.sensores && e.sensores[k]);
+  lista.forEach(e => {
+    const m = L.circleMarker([e.lat, e.lon], { radius: e.red === "CBDMQ" ? 9 : 7, fillColor: color(e.sensores[k][0], S.clases), fillOpacity: .95,
+      color: e.red === "CBDMQ" ? "#7d3c98" : "#1f3f73", weight: e.red === "CBDMQ" ? 2.5 : 1.2 });
+    m.on("click", () => { const p = popupEstacion(e); m.bindPopup(p.html).openPopup(); graficoPopup(p.id, e.horaria, "bar", "Lluvia por hora (mm)"); });
+    m.bindTooltip(textoSensor(e, k), { permanent: true, direction: "right", offset: [7, 0], className: "etq-sensor" });
+    m.on("mouseover", () => { const el = m.getTooltip().getElement(); if (el) { el.style.visibility = ""; el.style.zIndex = 900; } });
+    m.on("mouseout", () => { const el = m.getTooltip().getElement(); if (el) el.style.zIndex = ""; ocultarEncimadas(); });
+    e._marcador = m;
+    capaEstaciones.addLayer(m);
+  });
+  ocultarEncimadas();
+  leyenda("leyenda-estaciones", `${S.nombre} en este momento (${S.u})`, S.clases, true);
+  document.getElementById("leyenda-estaciones").insertAdjacentHTML("beforeend",
+    `<span class="caja">${lista.length} estaciones con este sensor (CBDMQ en morado, EPMAPS en azul).` +
+    (k === "presion" ? " La presión depende sobre todo de la altura de cada estación." : "") +
+    " Acerque el mapa para ver el valor de todas; pase el cursor o haga clic en una estación para ver sus datos.</span>");
+}
+// se muestran solo las etiquetas que no se tapan entre si (primero las del CBDMQ); al acercar el mapa aparecen las demas
+function ocultarEncimadas() {
+  if (estado.sensor === "lluvia") return;
+  const puestas = [];
+  const marcas = [];
+  capaEstaciones.eachLayer(m => marcas.push(m));
+  marcas.sort((a, b) => (b.options.weight > 2) - (a.options.weight > 2));
+  marcas.forEach(m => {
+    const el = m.getTooltip() && m.getTooltip().getElement(); if (!el) return;
+    const p = mapa.latLngToContainerPoint(m.getLatLng()), w = el.offsetWidth || 50;
+    const caja = [p.x + 6, p.y - 9, p.x + 10 + w, p.y + 9];
+    const choca = puestas.some(c => caja[0] < c[2] && caja[2] > c[0] && caja[1] < c[3] && caja[3] > c[1]);
+    el.style.visibility = choca ? "hidden" : "";
+    if (!choca) puestas.push(caja);
+  });
+}
+mapa.on("zoomend moveend", ocultarEncimadas);
 
 // ---------------------------------------------------------------- caudales
 function dibujarCaudal() {
@@ -275,6 +347,12 @@ function cargarTiempoReal() {
 document.querySelectorAll("#sel-ventana button").forEach(b => b.onclick = () => {
   document.querySelectorAll("#sel-ventana button").forEach(x => x.classList.toggle("activo", x === b));
   estado.ventana = b.dataset.v; dibujarEstaciones();
+});
+document.querySelectorAll("#sel-sensor button").forEach(b => b.onclick = () => {
+  document.querySelectorAll("#sel-sensor button").forEach(x => x.classList.toggle("activo", x === b));
+  estado.sensor = b.dataset.s;
+  document.getElementById("sel-ventana").classList.toggle("apagado", estado.sensor !== "lluvia");
+  dibujarEstaciones();
 });
 const alternar = (id, capa, m = mapa) => document.getElementById(id).addEventListener("change", e => e.target.checked ? capa.addTo(m) : m.removeLayer(capa));
 alternar("ver-estaciones", capaEstaciones); alternar("ver-rios", capaRios); alternar("ver-caudal", capaCaudal); alternar("ver-brigadas", capaBrigadas);
