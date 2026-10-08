@@ -84,10 +84,10 @@ function dibujarPronostico() {
     onEachFeature: (f, l) => {
       const p = f.properties, val = pr.por_parroquia[p.id] || {}, cl = climaDe(p.id);
       l.bindPopup(`<h3>${p.nombre}</h3><div>Brigada distrital: <b>${reparar(p.brigada)}</b></div>` +
-        `<table class="tabla-popup"><thead><tr><th>Día</th><th>Lluvia</th><th>Temp. máx / mín</th><th>Índice UV</th><th>Radiación</th></tr></thead><tbody>` +
+        `<table class="tabla-popup"><thead><tr><th>Día</th><th>Lluvia</th><th>Temp. máx / mín</th><th>Índice UV</th><th title="Promedio de 6h00 a 18h00, como miden las estaciones CBDMQ">Radiación solar*</th></tr></thead><tbody>` +
         pr.dias.map(d => { const c = cl[d]; return `<tr><td>${etiquetaDia(d).split(",")[0]}</td><td><b>${fmt(val[d])} mm</b></td>` +
-          (c ? `<td>${fmt(c[0], 0)} / ${fmt(c[1], 0)} °C</td><td>${fmt(c[2], 0)} (${categoriaUV(c[2])})</td><td>${fmt(c[3], 0)} MJ/m²</td>` : "<td colspan=3>sin dato todavía</td>") + "</tr>"; }).join("") +
-        "</tbody></table>", { maxWidth: 460, minWidth: 380 });
+          (c ? `<td>${fmt(c[0], 0)} / ${fmt(c[1], 0)} °C</td><td>${fmt(c[2], 0)} (${categoriaUV(c[2])})</td><td>${fmt(c[3] * 1e6 / 43200, 0)} W/m²</td>` : "<td colspan=3>sin dato todavía</td>") + "</tr>"; }).join("") +
+        "</tbody></table><div class='nota-popup'>* Radiación solar promedio entre las 6h00 y las 18h00 (al mediodía despejado llega a unos 1.000 W/m²).</div>", { maxWidth: 460, minWidth: 380 });
       const ch = cl[estado.dia];
       l.bindTooltip(`${p.nombre}: ${fmt(val[estado.dia])} mm` + (ch ? ` · ${fmt(ch[0], 0)}/${fmt(ch[1], 0)} °C · UV ${fmt(ch[2], 0)}` : ""), { sticky: true });
     } }).addTo(mapa);
