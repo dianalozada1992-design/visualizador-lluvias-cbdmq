@@ -41,13 +41,20 @@ def dia_anterior_estaciones(actualizar):
     ayer = (ahora - dt.timedelta(days=1)).strftime("%Y-%m-%d")
     texto = kv.leer("estaciones_dias")
     previo = json.loads(texto.split("=", 1)[1].rstrip(";\n")) if texto else {}
-    if ahora.hour < 1 or ayer in previo.get("dias", {}):
+    if ahora.hour < 1:
         return
     import dias_estaciones
     capas = json.loads(open(os.path.join(DATOS, "capas.js"), encoding="utf8").read().split("=", 1)[1].rstrip(";\n"))
-    datos = actualizar.con_limite(lambda: dias_estaciones.agregar(previo, capas, ayer), 240)
-    kv.guardar("estaciones_dias", dias_estaciones.texto(datos))
-    print("Dia anterior de las estaciones guardado:", ayer, len(datos["dias"][ayer]["estaciones"]), "estaciones")
+    if ayer not in previo.get("dias", {}):
+        previo = actualizar.con_limite(lambda: dias_estaciones.agregar(previo, capas, ayer), 240)
+        kv.guardar("estaciones_dias", dias_estaciones.texto(previo))
+        print("Dia anterior de las estaciones guardado:", ayer, len(previo["dias"][ayer]["estaciones"]), "estaciones")
+    # archivo mensual: CBDMQ tal como llega (cada 5 minutos) y EPMAPS hora por hora, con su Excel para descargar
+    import archivo_mensual
+    alm = archivo_mensual.Almacen(kv)
+    if not archivo_mensual.archivado(alm, ayer):
+        m = actualizar.con_limite(lambda: archivo_mensual.agregar_dia(alm, ayer, previo["dias"][ayer]), 300)
+        print("Archivo mensual al dia:", ayer, m)
 
 
 def main():

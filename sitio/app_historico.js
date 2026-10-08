@@ -340,3 +340,19 @@ actualizarHistorico();
   selEst.onchange = () => { graficos(); tabla(); };
   llenarEstaciones(); graficos(); tabla();
 })();
+
+// ---------------------------------------------------------------- archivo mensual para descargar (solo en la version web)
+(function descargas() {
+  const cont = document.getElementById("hh-descargas");
+  if (!cont || location.protocol !== "https:") return;
+  const MESES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
+  fetch("descargas/indice.json", { credentials: "include" }).then(r => r.ok ? r.json() : null).then(ind => {
+    const meses = Object.keys((ind && ind.meses) || {}).sort().reverse();
+    if (!meses.length) return;
+    cont.innerHTML = "<h2>Descargar datos de las estaciones (Excel por mes)</h2>" +
+      "<p class='sub'>CBDMQ: tal como se registran, cada 5 minutos, con todos los sensores. EPMAPS: hora por hora. Se completan solos cada día con el día anterior.</p>" +
+      meses.map(m => { const x = ind.meses[m], d = x.dias;
+        return `<div class="fila-descarga"><b>${MESES[+m.slice(5) - 1]} de ${m.slice(0, 4)}</b><span class="sub">${d.length} días (del ${+d[0].slice(8)} al ${+d[d.length - 1].slice(8)})</span>` +
+          `<a href="descargas/cbdmq_${m}.xlsx">⬇ CBDMQ cada 5 minutos</a><a href="descargas/epmaps_${m}.xlsx">⬇ EPMAPS hora por hora</a></div>`; }).join("");
+  }).catch(() => {});
+})();

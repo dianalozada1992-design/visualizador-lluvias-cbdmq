@@ -15,6 +15,7 @@ ORIGEN = os.path.join("D:" + os.sep, "Documentos", "Procesos_ de_Contratación",
 CODIGO = {
     "visualizador/actualizar.py": "nube/visualizador/actualizar.py",
     "visualizador/dias_estaciones.py": "nube/visualizador/dias_estaciones.py",
+    "visualizador/archivo_mensual.py": "nube/visualizador/archivo_mensual.py",
     "pronostico/pronostico_diario.py": "nube/pronostico/pronostico_diario.py",
     "pronostico/boletin_visual.py": "nube/pronostico/boletin_visual.py",
     "pronostico/calibracion.json": "nube/pronostico/calibracion.json",

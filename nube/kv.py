@@ -63,6 +63,16 @@ def leer(clave):
         raise
 
 
+def leer_bytes(clave):
+    """Devuelve los bytes guardados (archivos comprimidos, Excel), o None si no existe."""
+    try:
+        return _pedir("GET", _ns() + urllib.parse.quote(clave))
+    except urllib.error.HTTPError as e:
+        if e.code == 404:
+            return None
+        raise
+
+
 def guardar(clave, texto):
     _pedir("PUT", _ns() + urllib.parse.quote(clave), texto.encode("utf8"), "text/plain; charset=utf-8")
 

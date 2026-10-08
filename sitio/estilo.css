@@ -150,3 +150,6 @@ a.pestana { text-decoration: none; display: inline-block; }
 #hh-tabla th { cursor: pointer; }
 #hh-tabla tbody tr { cursor: pointer; }
 #hh-tabla tbody tr.sel td { background: #eaf0f8; font-weight: 700; }
+.descargas { margin-top: 16px; }
+.fila-descarga { display: flex; flex-wrap: wrap; gap: 6px 16px; align-items: baseline; padding: 6px 0; border-bottom: 1px solid var(--borde); font-size: 13px; }
+.fila-descarga a { color: var(--azul); font-weight: 700; text-decoration: none; }
