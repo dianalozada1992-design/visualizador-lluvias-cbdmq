@@ -1,13 +1,16 @@
 """Pronostico de lluvia por parroquia para el DMQ (hoy, manana y pasado manana).
 
 1. Consulta en Open-Meteo los modelos que mejor acertaron en Quito (calibracion.json).
-2. Corrige cada modelo por su sesgo y promedia (conjunto).
+2. Corrige cada modelo con la tabla de equivalencias entre lo pronosticado y lo medido en el DMQ
+   (mapeo de cuantiles, por epoca lluviosa y seca) y promedia los tres (conjunto).
 3. Convierte la lluvia pronosticada en probabilidad de dia de lluvia fuerte y de
    inundacion, segun como se comportaron los pronosticos en 2024-2026.
 4. Suma la lluvia de los ultimos 7 dias medida por las estaciones CBDMQ (API) y sube
    un nivel la alerta si el suelo ya esta cargado (mas de 30 mm en la semana).
 Salidas en pronostico\\boletines\\: boletin_AAAA-MM-DD.pdf y .xlsx
-Correr con el Python de ArcGIS Pro.
+Ademas calcula temperatura maxima y minima, indice UV y radiacion por parroquia (pronostico_clima).
+En la nube lo ejecuta GitHub Actions a las 6h00 (nube/correr_pronostico.py) sin ArcGIS; en la computadora,
+con ArcGIS Pro recalcula los puntos de las parroquias a partir de la capa original.
 """
 import json
 import os

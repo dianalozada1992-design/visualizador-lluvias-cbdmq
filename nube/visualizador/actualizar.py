@@ -3,7 +3,10 @@
   - Lluvia actual: telemetria paraMH2O (EPMAPS, 72 estaciones) y API LI-COR (8 estaciones CBDMQ)
   - Caudal y nivel de rios: telemetria de las estaciones hidrometricas del paraMH2O
   - Pronostico 72 h por parroquia y brigada (modelos corregidos, ver pronostico\\)
-Correr con el Python de ArcGIS Pro. Pensado para correr cada 30 minutos.
+  - Lectura actual de los demas sensores (temperatura, humedad, viento, radiacion, presion)
+  - Temperatura, indice UV y radiacion por parroquia (se recalcula cada 3 horas)
+En la nube lo ejecuta GitHub Actions cada 10 minutos (nube/correr_actualizacion.py); no necesita ArcGIS.
+En la computadora tambien se puede correr con cualquier Python que tenga pandas y numpy.
 """
 import datetime as dt
 import http.cookiejar
@@ -377,7 +380,7 @@ def main():
     for k in ("cbdmq", "lluvia_epmaps", "rios", "pronostico", "clima"):
         if k not in salida and k in previo:
             salida[k] = previo[k]; salida.setdefault("fuentes_anteriores", []).append(k)
-    # alertas por WhatsApp (lluvia de 2 mm, 10/20/30 mm en 1 hora y riesgo de crecida)
+    # alertas por Telegram (lluvia de 2 mm, 10/20/30 mm en 1 hora y riesgo de crecida)
     try:
         sys.path.insert(0, os.path.join(BASE, "alertas"))
         import alertas
