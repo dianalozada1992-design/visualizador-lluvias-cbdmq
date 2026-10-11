@@ -1,4 +1,4 @@
-"""Alertas de lluvia y crecida por WhatsApp (CallMeBot).
+"""Alertas de lluvia y crecida por Telegram (grupo de alertas del CBDMQ).
 
 Lo llama actualizar.py del visualizador cada vez que trae datos nuevos. Revisa:
   - aviso "esta lloviendo": 2 mm o mas en la ultima hora en una estacion
@@ -8,6 +8,9 @@ Lo llama actualizar.py del visualizador cada vez que trae datos nuevos. Revisa:
 Para no repetir mensajes, solo avisa cuando algo es nuevo, sube de nivel o sigue activo despues
 de unas horas (estado_alertas.json). Los umbrales se cambian en alertas_config.json y las
 personas que reciben en alertas_contactos.json.
+Por Telegram solo se envian situaciones dentro del DMQ, con la parroquia; lo de fuera del DMQ queda en el visualizador.
+Antes de alertar, cada dato pasa control de calidad (valores imposibles y estaciones vecinas a menos de 6 km).
+El envio por WhatsApp (CallMeBot) queda como canal opcional para contactos que tengan telefono y clave.
 Prueba sin enviar:  python alertas.py   (o --simular para inventar lluvia fuerte)
 """
 import datetime as dt
