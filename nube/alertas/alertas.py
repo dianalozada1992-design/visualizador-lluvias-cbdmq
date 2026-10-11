@@ -128,7 +128,8 @@ def evaluar(salida, capas, cfg, cuencas):
                             "detalle": f"Estación {nombre}"})
         # condiciones propicias para lluvia en las 2 horas siguientes (solo estaciones CBDMQ, ver condiciones.py)
         cond = e.get("condiciones") or {}
-        if cond.get("nivel"):
+        # si ya llueve en una estacion vecina (menos de 6 km), no se avisa "puede llover": la lluvia ya llego a la zona
+        if cond.get("nivel") and not con_vecina_lloviendo(e):
             p = cond.get("prob_historica") or (0.4 if cond["nivel"] == 2 else 0.25)
             veces = f"{max(1, round(p * 10))} de cada 10"
             senales = [f"humedad {cond['humedad']} %", f"faltan {fmt(cond['dif_rocio'])} °C para que el aire se sature"]
@@ -137,7 +138,7 @@ def evaluar(salida, capas, cfg, cuencas):
             senales.append(f"el modelo anuncia {fmt(cond['mm_modelo_2h'])} mm")
             activas.append({"tipo": "condiciones", "clave": "condiciones:" + nombre, "nivel": cond["nivel"], **donde, "mm_1h": 0,
                             "veces": veces,
-                            "texto": f"{parroquia} (brigada {brigada}) y alrededores: puede llover en las próximas 2 horas. "
+                            "texto": f"{parroquia} (brigada {brigada}) y alrededores: lluvia probable pronto, puede empezar en cualquier momento de las próximas 2 horas. "
                                      f"Con condiciones así llovió {veces} veces.",
                             "detalle": f"Estación {nombre}: " + ", ".join(senales) + "."})
     # riesgo de crecida por microcuenca
@@ -256,8 +257,8 @@ def armar_mensaje(items, ahora, cfg):
         partes.append("\n".join(lineas))
     co = [i for i in items if i["tipo"] == "condiciones"]
     if co:
-        lineas = ["🌥️ *PUEDE LLOVER EN LAS PRÓXIMAS 2 HORAS*",
-                  "Las estaciones y el pronóstico muestran condiciones muy favorables para lluvia en:"]
+        lineas = ["🌥️ *LLUVIA PROBABLE PRONTO*",
+                  "Se están formando nubes de lluvia; puede empezar en cualquier momento de las próximas 2 horas en:"]
         lineas.append("• " + ", ".join(sorted({i["parroquia"] for i in co})))
         veces = sorted({i.get("veces", "") for i in co})
         lineas.append(f"👉 Aviso preventivo, no confirmado: con condiciones así llovió {' a '.join(v.split(' de ')[0] for v in veces)} de cada 10 veces.")
