@@ -129,6 +129,7 @@ function actualizarHistorico() {
   const valor = r => ind === "emergencias" ? r.emerg : ind === "lluvia" ? r.total : r.max_h;
   mapaH.removeLayer(capaH);
   capaH = L.geoJSON(CAPAS.parroquias, {
+    pane: "relleno",
     style: f => { const r = res[f.properties.id]; const v = r ? valor(r) : null; const s = selIds.has(f.properties.id);
       const fc = ind === "emergencias" ? colE(v || 0) : v === null || v === undefined ? "#f4f6f8" : ind === "lluvia" ? color(v, esc) : color(v, CLASES_AHORA.lluvia_1h.map((c, k) => [[0.2, 5, 10, 20, 30, Infinity][k] || Infinity, c[1], c[2]]));
       return { fillColor: fc, fillOpacity: s ? .8 : .2, color: s && sel.length < 65 ? "#1f3f73" : "#fff", weight: s && sel.length < 65 ? 2 : .7 }; },

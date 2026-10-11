@@ -51,6 +51,36 @@ CAPAS.rios.features.forEach(f => {
       .bindTooltip(nom, { permanent: true, direction: "center", className: "etiqueta-rio" }));
   }
 });
+// nombres de todas las quebradas y rios al acercarse (desde el nivel 14), solo los que se ven en pantalla
+const etiquetasCerca = L.layerGroup().addTo(capaRios);
+const TRAMOS = CAPAS.rios.features.filter(f => f.properties.nombre && !rotulados.has(f.properties.nombre))
+  .map(f => ({ nom: f.properties.nombre, coords: f.geometry.coordinates.map(c => [c[1], c[0]]) }));
+function rotularCerca() {
+  etiquetasCerca.clearLayers();
+  if (mapa.getZoom() < 14 || !mapa.hasLayer(capaRios)) return;
+  const b = mapa.getBounds(), vistos = new Set();
+  for (const t of TRAMOS) {
+    if (vistos.size >= 120) break;
+    if (vistos.has(t.nom)) continue;
+    const dentro = t.coords.filter(c => b.contains(c));
+    if (dentro.length < 3) continue;
+    vistos.add(t.nom);
+    etiquetasCerca.addLayer(L.marker(dentro[Math.floor(dentro.length / 2)], { opacity: 0, interactive: false })
+      .bindTooltip(t.nom, { permanent: true, direction: "center", className: "etiqueta-rio" }));
+  }
+}
+mapa.on("moveend", rotularCerca);
+capaRios.on("add", rotularCerca);
+// el buscador del mapa tambien encuentra las estaciones
+mapa.lugaresExtra = () => {
+  if (!TR) return [];
+  const est = new Map();  // una estacion de rio puede venir dos veces (caudal y nivel)
+  [...(TR.cbdmq || []), ...(TR.lluvia_epmaps || []), ...(TR.rios || [])].filter(e => e.lat != null && e.nombre).forEach(e => {
+    const nombre = (e.red === "CBDMQ" ? "CBDMQ " : "") + e.nombre;
+    if (!est.has(nombre)) est.set(nombre, { nombre, tipo: (TR.rios || []).includes(e) ? "Estación de río" : "Estación", punto: [e.lat, e.lon] });
+  });
+  return [...est.values()];
+};
 let capaPronostico = L.geoJSON(null).addTo(mapa);
 const capaEstaciones = L.layerGroup().addTo(mapa);
 const capaCaudal = L.layerGroup().addTo(mapa);
@@ -79,6 +109,7 @@ function dibujarPronostico() {
   if (!pr || !estado.dia) { capaPronostico = L.geoJSON(null).addTo(mapa); return; }
   const v = VARIABLES_PRON[estado.variable];
   capaPronostico = L.geoJSON(CAPAS.parroquias, {
+    pane: "relleno",
     style: f => { const x = valorPron(pr, f.properties.id, estado.dia);
       return { fillColor: x == null ? "#ffffff" : color(x, v.clases), fillOpacity: x == null ? .3 : .72, color: "#fff", weight: .8 }; },
     onEachFeature: (f, l) => {

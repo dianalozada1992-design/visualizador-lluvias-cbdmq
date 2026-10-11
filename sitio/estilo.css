@@ -94,6 +94,16 @@ tr.sel td { background: #dbe9f8; font-weight: 600; }
 .etiqueta-rio { background: transparent; border: 0; box-shadow: none; color: #1565a8; font-size: 11px; font-weight: 600; font-style: italic;
   text-shadow: 0 0 3px #fff, 0 0 3px #fff, 0 0 3px #fff; }
 .etiqueta-rio::before { display: none; }
+/* buscador del mapa */
+.buscador { background: #fff; border-radius: 8px; box-shadow: 0 1px 5px rgba(0,0,0,.35); width: 290px; max-width: calc(100vw - 80px); }
+.buscador-fila { display: flex; }
+.buscador input { flex: 1; min-width: 0; border: 0; padding: 8px 10px; font-size: 13px; border-radius: 8px 0 0 8px; outline: none; }
+.buscador-fila button { border: 0; background: var(--azul); color: #fff; padding: 0 12px; border-radius: 0 8px 8px 0; cursor: pointer; font-size: 14px; }
+.buscador-res { border-top: 1px solid var(--borde); max-height: 260px; overflow-y: auto; }
+.buscador-res button { display: block; width: 100%; text-align: left; border: 0; background: #fff; padding: 7px 10px; font-size: 12.5px; cursor: pointer; color: var(--texto); }
+.buscador-res button:hover { background: #eef3fa; }
+.buscador-res small { color: var(--suave); }
+.buscador-res p { margin: 0; padding: 7px 10px; font-size: 12px; color: var(--suave); }
 .leaflet-popup-content { font-size: 12.5px; min-width: 230px; }
 .leaflet-popup-content h3 { margin: 0 0 4px; font-size: 14px; color: var(--azul); }
 .popup-grafico { height: 140px; width: 260px; }
