@@ -102,7 +102,8 @@ def evaluar(salida, capas, cfg, cuencas):
         lugar = f'{parr["nombre"]}, brigada {parr["brigada"]}' if parr else "fuera de las parroquias del DMQ"
         parroquia = parr["nombre"] if parr else "Fuera del DMQ"
         brigada = parr["brigada"] if parr else "Fuera del DMQ"
-        donde = {"estacion": nombre, "lugar": lugar, "parroquia": parroquia, "brigada": brigada}
+        donde = {"estacion": nombre, "lugar": lugar, "parroquia": parroquia, "brigada": brigada,
+                 "lat": round(e["lat"], 5), "lon": round(e["lon"], 5)}
         estaciones.append({**e, "_nombre": nombre, "_lugar": lugar, "_cuenca": cue["id"] if cue else None})
         mm = e.get("lluvia_1h", 0) or 0
         # control de calidad (OMM N 8; Zahumensky 2004): valores imposibles se descartan y no generan alerta
@@ -259,7 +260,9 @@ def armar_mensaje(items, ahora, cfg):
     if co:
         lineas = ["🌥️ *AVISO PREVENTIVO DE LLUVIA*",
                   "Hay condiciones para que llueva en las próximas 2 horas en:"]
-        lineas.append("• " + ", ".join(sorted({i["parroquia"] for i in co})))
+        # cada parroquia con el enlace a la ubicacion de la estacion que detecto las condiciones
+        for parr, i in sorted({i["parroquia"]: i for i in co}.items()):
+            lineas.append(f"• {parr} · [📍 ver ubicación]({mapa_url(i)})" if i.get("lat") is not None else f"• {parr}")
         partes.append("\n".join(lineas))
     av = [i for i in items if i["tipo"] == "aviso"]
     if av:
@@ -280,9 +283,23 @@ def enviar_whatsapp(contacto, texto):
 
 
 def a_html(texto):
-    """Pasa el formato *negrita* de los mensajes al formato de Telegram."""
+    """Pasa el formato *negrita* y [texto](enlace) de los mensajes al formato de Telegram."""
     texto = texto.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+    texto = re.sub(r"\[([^\]\n]+)\]\((https://[^)\s]+)\)", r'<a href="\2">\1</a>', texto)
     return re.sub(r"\*([^*\n]+)\*", r"<b>\1</b>", texto)
+
+
+def mapa_url(i):
+    return f"https://www.google.com/maps?q={i['lat']},{i['lon']}"
+
+
+def enviar_ubicaciones(token, chat_id, items, maximo=3):
+    """Punto en el mapa de Telegram por cada parroquia con aviso preventivo de lluvia (hasta 3)."""
+    lugares = sorted({i["parroquia"]: i for i in items if i["tipo"] == "condiciones" and i.get("lat") is not None}.items())
+    for parr, i in lugares[:maximo]:
+        datos = urllib.parse.urlencode({"chat_id": chat_id, "latitude": i["lat"], "longitude": i["lon"],
+                                        "title": f"Aviso preventivo de lluvia: {parr}", "address": i.get("lugar", parr)}).encode()
+        urllib.request.urlopen(f"https://api.telegram.org/bot{token}/sendVenue", datos, timeout=40).read()
 
 
 def enviar_telegram(token, chat_id, texto):
@@ -371,6 +388,11 @@ def procesar(salida, capas, prueba=False):
             for intento in range(3):
                 try:
                     enviar(c, token, texto)
+                    if c["_canal"] == "telegram":
+                        try:
+                            enviar_ubicaciones(token, c["chat_id"], mios)
+                        except Exception as ex:
+                            anotar(f"No se pudo enviar la ubicación a {c['nombre']}: {str(ex)[:100]}")
                     resumen["enviadas"].append(c["nombre"])
                     resumen["items_enviados"] = [{"hora": ahora.strftime("%Y-%m-%d %H:%M"), "tipo": i["tipo"], "nivel": i["nivel"],
                                                   "parroquia": i.get("parroquia") or i.get("rio"), "mm_1h": i.get("mm_1h", 0)} for i in mios]
