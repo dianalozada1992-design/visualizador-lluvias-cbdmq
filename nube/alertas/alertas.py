@@ -138,7 +138,7 @@ def evaluar(salida, capas, cfg, cuencas):
             senales.append(f"el modelo anuncia {fmt(cond['mm_modelo_2h'])} mm")
             activas.append({"tipo": "condiciones", "clave": "condiciones:" + nombre, "nivel": cond["nivel"], **donde, "mm_1h": 0,
                             "veces": veces,
-                            "texto": f"{parroquia} (brigada {brigada}) y alrededores: lluvia probable pronto, puede empezar en cualquier momento de las próximas 2 horas. "
+                            "texto": f"{parroquia} (brigada {brigada}) y alrededores: hay condiciones para que llueva en las próximas 2 horas. "
                                      f"Con condiciones así llovió {veces} veces.",
                             "detalle": f"Estación {nombre}: " + ", ".join(senales) + "."})
     # riesgo de crecida por microcuenca
@@ -257,10 +257,9 @@ def armar_mensaje(items, ahora, cfg):
         partes.append("\n".join(lineas))
     co = [i for i in items if i["tipo"] == "condiciones"]
     if co:
-        lineas = ["🌥️ *LLUVIA PROBABLE PRONTO*",
-                  "Se están formando nubes de lluvia; puede empezar en cualquier momento de las próximas 2 horas en:"]
+        lineas = ["🌥️ *AVISO PREVENTIVO DE LLUVIA*",
+                  "Hay condiciones para que llueva en las próximas 2 horas en:"]
         lineas.append("• " + ", ".join(sorted({i["parroquia"] for i in co})))
-        lineas.append("👉 Aviso preventivo.")
         partes.append("\n".join(lineas))
     av = [i for i in items if i["tipo"] == "aviso"]
     if av:
