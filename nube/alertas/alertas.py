@@ -260,8 +260,7 @@ def armar_mensaje(items, ahora, cfg):
         lineas = ["🌥️ *LLUVIA PROBABLE PRONTO*",
                   "Se están formando nubes de lluvia; puede empezar en cualquier momento de las próximas 2 horas en:"]
         lineas.append("• " + ", ".join(sorted({i["parroquia"] for i in co})))
-        veces = sorted({i.get("veces", "") for i in co})
-        lineas.append(f"👉 Aviso preventivo, no confirmado: con condiciones así llovió {' a '.join(v.split(' de ')[0] for v in veces)} de cada 10 veces.")
+        lineas.append("👉 Aviso preventivo.")
         partes.append("\n".join(lineas))
     av = [i for i in items if i["tipo"] == "aviso"]
     if av:
