@@ -147,10 +147,10 @@ def evaluar(salida, capas, cfg, cuencas):
                                      f"Con condiciones así llovió {veces} veces.",
                             "detalle": f"Estación {nombre}: " + ", ".join(senales) + "."})
     # nubes de tormenta vistas por el satelite GOES-19 (prueba con 62 dias de oct 2025 - sep 2026, por brigada:
-    # tope de nube de -40 C o mas frio a 10 km de alguna estacion -> 65 % de las lluvias vistas antes, 40 min de anticipacion
-    # tipica, 1 de cada 2 avisos sin lluvia). No se avisa donde ya esta lloviendo.
+    # tope de nube de -35 C o mas frio a 10 km de alguna estacion -> 70 % de las lluvias vistas antes, 40 min de anticipacion
+    # tipica, 6 de cada 10 avisos sin lluvia). No se avisa donde ya esta lloviendo.
     sat = salida.get("satelite") or {}
-    rs = cfg.get("satelite", {"tope_max_c": -40})
+    rs = cfg.get("satelite", {"tope_max_c": -35})
     # granizo probable: tope de nube muy frio (-65 C) y, en una estacion de la misma brigada, la temperatura baja de golpe
     # (4 C en 15 min) o caen 3 mm o mas en 5 minutos. Calibrado con la tormenta del 7 de octubre de 2026; se ira ajustando.
     rg = cfg.get("granizo", {"tope_max_c": -65, "caida_temp_c": 4, "lluvia_5min_mm": 3, "tope_posible_c": -70})
