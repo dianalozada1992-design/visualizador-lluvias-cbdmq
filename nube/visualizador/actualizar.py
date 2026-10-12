@@ -320,8 +320,42 @@ def clima():
     return {"por_parroquia": out, "inamhi_quito": pdi.inamhi_quito()}
 
 
+def satelite(capas):
+    """GOES-19 banda 13 (tope de las nubes): imagen mas reciente del centro del Ecuador. Guarda los cuadros de la
+    ultima hora (datos/goes_cuadros.npz) para la animacion y calcula, para cada estacion, el tope mas frio a 10 km."""
+    sys.path.insert(0, os.path.join(BASE, "alertas"))
+    import goes_satelite as g
+    import goes_animacion as ga
+    ruta = os.path.join(CARPETA, "datos", "goes_cuadros.npz")
+    prev = dict(np.load(ruta, allow_pickle=False)) if os.path.exists(ruta) else {}
+    clave = g.ultima("c13")
+    hora = g.inicio_escaneo(clave).strftime("%Y-%m-%d %H:%M")  # UTC
+    horas = [str(h) for h in prev.get("horas", [])]
+    if hora not in horas:
+        img = g.leer("c13", clave, ga.REGION)
+        v = np.round(np.nan_to_num(img["valor"], nan=99) * 10).astype(np.int16)
+        if horas and prev["valor"].shape[1:] == v.shape:
+            valores = np.concatenate([prev["valor"], v[None]])[-7:]
+            horas = (horas + [hora])[-7:]
+        else:
+            valores, horas = v[None], [hora]
+        np.savez_compressed(ruta, valor=valores, horas=np.array(horas), lat=img["lat"].astype(np.float32), lon=img["lon"].astype(np.float32))
+        prev = dict(np.load(ruta, allow_pickle=False))
+    lat, lon, ult = prev["lat"], prev["lon"], prev["valor"][-1] / 10.0
+    ult = np.where(ult > 90, np.nan, ult)
+    est = {}
+    for red, lista in (("CBDMQ", capas["cbdmq"]), ("EPMAPS", [e for e in capas["telemetria"] if "Hidro" not in e["tipo"]])):
+        for e in lista:
+            d2 = (lat - e["lat"]) ** 2 + ((lon - e["lon"]) * np.cos(np.radians(e["lat"]))) ** 2
+            cerca = ult[d2 < (10 / 111) ** 2]
+            if cerca.size and np.isfinite(cerca).any():
+                est[f"{red}:{e['nombre']}"] = round(float(np.nanmin(cerca)), 1)
+    h_local = (dt.datetime.strptime(horas[-1], "%Y-%m-%d %H:%M") - dt.timedelta(hours=5)).strftime("%Y-%m-%d %H:%M")
+    return {"hora": h_local, "estaciones": est}
+
+
 # tiempo maximo por fuente: si una no responde, se usan sus datos anteriores y la actualizacion termina igual
-LIMITE_S = {"cbdmq": 240, "telemetria": 240, "pronostico": 300, "clima": 180}
+LIMITE_S = {"cbdmq": 240, "telemetria": 240, "pronostico": 300, "clima": 180, "satelite": 120}
 
 
 def con_limite(fn, segundos):
@@ -353,7 +387,8 @@ def main():
     except Exception:
         previo = {}
     hace3h = (t - dt.timedelta(hours=3)).strftime("%Y-%m-%d %H:%M")
-    for nombre, fn in [("cbdmq", lambda: cbdmq(capas, t)), ("telemetria", lambda: telemetria(capas, t)), ("pronostico", pronostico), ("clima", clima)]:
+    for nombre, fn in [("cbdmq", lambda: cbdmq(capas, t)), ("telemetria", lambda: telemetria(capas, t)), ("pronostico", pronostico), ("clima", clima),
+                     ("satelite", lambda: satelite(capas))]:
         # el pronostico y la temperatura cambian poco: se recalculan cada 3 horas (asi no se pasa el limite gratuito de Open-Meteo)
         if nombre in ("pronostico", "clima") and previo.get(nombre) and previo.get(nombre + "_calculado", "") > hace3h:
             salida[nombre], salida[nombre + "_calculado"] = previo[nombre], previo[nombre + "_calculado"]

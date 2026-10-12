@@ -23,6 +23,9 @@ def preparar():
     kv.bajar_a_archivo("tiempo_real", os.path.join(DATOS, "tiempo_real.js"))
     kv.bajar_a_archivo("geo_pronostico", os.path.join(NUBE, "pronostico", "geo_pronostico.json"))
     kv.bajar_a_archivo("estado_alertas", os.path.join(ALERTAS, "estado_alertas.json"))
+    cuadros = kv.leer_bytes("goes_cuadros")  # imagenes del satelite de la ultima hora (para la animacion)
+    if cuadros:
+        open(os.path.join(DATOS, "goes_cuadros.npz"), "wb").write(cuadros)
     if not kv.bajar_a_archivo("destinos", os.path.join(ALERTAS, "alertas_contactos.json")):
         json.dump({"destinos": []}, open(os.path.join(ALERTAS, "alertas_contactos.json"), "w", encoding="utf8"))
     # estado del boletin de hoy (lo deja correr_pronostico.py): se marca con un archivo vacio con su hora
@@ -63,6 +66,8 @@ def main():
     import actualizar
     actualizar.main()
     kv.subir_archivo("tiempo_real", os.path.join(DATOS, "tiempo_real.js"))
+    if os.path.exists(os.path.join(DATOS, "goes_cuadros.npz")):
+        kv.guardar_bytes("goes_cuadros", open(os.path.join(DATOS, "goes_cuadros.npz"), "rb").read())
     # registro de alertas enviadas por Telegram (lo usa el informe semanal)
     try:
         tr = json.loads(open(os.path.join(DATOS, "tiempo_real.js"), encoding="utf8").read().split("=", 1)[1].rstrip(";\n"))

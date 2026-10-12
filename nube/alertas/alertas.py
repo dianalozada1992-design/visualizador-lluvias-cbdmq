@@ -92,6 +92,7 @@ def evaluar(salida, capas, cfg, cuencas):
             if d <= qc["radio_vecinas_km"] and (x.get("lluvia_1h") or 0) >= qc["vecina_con_lluvia_mm"]:
                 return True
         return False
+    sat_cand = []
     for e in salida.get("cbdmq", []) + salida.get("lluvia_epmaps", []):
         if e.get("sin_datos") or e.get("dato_anterior") or e.get("lat") is None:
             continue
@@ -105,6 +106,8 @@ def evaluar(salida, capas, cfg, cuencas):
         donde = {"estacion": nombre, "lugar": lugar, "parroquia": parroquia, "brigada": brigada,
                  "lat": round(e["lat"], 5), "lon": round(e["lon"], 5)}
         estaciones.append({**e, "_nombre": nombre, "_lugar": lugar, "_cuenca": cue["id"] if cue else None})
+        sat_cand.append({**donde, "clave_sat": f"{e.get('red', 'EPMAPS')}:{e['nombre']}", "mm": e.get("lluvia_1h", 0) or 0,
+                         "reciente": e.get("retraso_min", 9999) <= cfg["dato_maximo_atraso_min"]})
         mm = e.get("lluvia_1h", 0) or 0
         # control de calidad (OMM N 8; Zahumensky 2004): valores imposibles se descartan y no generan alerta
         if mm > qc["max_1h_mm"] or (e.get("max_5min") or 0) > qc["max_5min_mm"]:
@@ -142,6 +145,26 @@ def evaluar(salida, capas, cfg, cuencas):
                             "texto": f"{parroquia} (brigada {brigada}) y alrededores: hay condiciones para que llueva en las próximas 2 horas. "
                                      f"Con condiciones así llovió {veces} veces.",
                             "detalle": f"Estación {nombre}: " + ", ".join(senales) + "."})
+    # nubes de tormenta vistas por el satelite GOES-19 (prueba con 62 dias de oct 2025 - sep 2026, por brigada:
+    # tope de nube de -40 C o mas frio a 10 km de alguna estacion -> 65 % de las lluvias vistas antes, 40 min de anticipacion
+    # tipica, 1 de cada 2 avisos sin lluvia). No se avisa donde ya esta lloviendo.
+    sat = salida.get("satelite") or {}
+    rs = cfg.get("satelite", {"tope_max_c": -40})
+    if sat.get("estaciones"):
+        lloviendo = {c["brigada"] for c in sat_cand if c["reciente"] and c["mm"] >= 1}
+        por_brig = {}
+        for c in sat_cand:
+            m = sat["estaciones"].get(c["clave_sat"])
+            if m is not None and m <= rs["tope_max_c"] and c["parroquia"] != "Fuera del DMQ" and c["brigada"] not in lloviendo:
+                por_brig.setdefault(c["brigada"], []).append((m, c))
+        for b, lst in por_brig.items():
+            lst.sort(key=lambda x: x[0])
+            m0, c0 = lst[0]
+            parrs = sorted({c["parroquia"] for _, c in lst})
+            activas.append({"tipo": "satelite", "clave": "satelite:" + b, "nivel": 1, "parroquia": c0["parroquia"], "brigada": b,
+                            "parroquias": parrs, "lat": c0["lat"], "lon": c0["lon"], "lugar": c0["lugar"], "mm_1h": 0, "tope_c": m0,
+                            "texto": f"{', '.join(parrs)}: nubes de tormenta acercándose, posible lluvia en la próxima hora.",
+                            "detalle": f"Satélite GOES-19, imagen de las {sat['hora'][11:]}: tope de nube de {fmt(m0)} °C cerca de la estación {c0['estacion']}."})
     # riesgo de crecida por microcuenca
     nombre_parr = {f["properties"]["id"]: f["properties"]["nombre"] for f in capas["parroquias"]["features"]}
     niveles = list(cfg["crecida_promedio_microcuenca_mm"].items())
@@ -264,6 +287,13 @@ def armar_mensaje(items, ahora, cfg):
         for parr, i in sorted({i["parroquia"]: i for i in co}.items()):
             lineas.append(f"• {parr} · [📍 ver ubicación]({mapa_url(i)})" if i.get("lat") is not None else f"• {parr}")
         partes.append("\n".join(lineas))
+    sa = [i for i in items if i["tipo"] == "satelite"]
+    if sa:
+        lineas = ["⛈️ *AVISO PREVENTIVO DE LLUVIA (satélite)*",
+                  "Nubes de tormenta acercándose. Posible lluvia en la próxima hora en:"]
+        for i in sorted(sa, key=lambda x: x["tope_c"]):
+            lineas.append(f"• {', '.join(i['parroquias'][:6])} · [📍 ver ubicación]({mapa_url(i)})")
+        partes.append("\n".join(lineas))
     av = [i for i in items if i["tipo"] == "aviso"]
     if av:
         lineas = [f"🟢 *ESTÁ LLOVIENDO* ({cfg['aviso_lluvia_1h_mm']} mm o más en una hora)"]
@@ -289,16 +319,42 @@ def a_html(texto):
     return re.sub(r"\*([^*\n]+)\*", r"<b>\1</b>", texto)
 
 
+def animacion_satelite():
+    """GIF de la ultima hora del GOES-19 con los cuadros que guarda actualizar.py (datos/goes_cuadros.npz)."""
+    import numpy as np
+    import goes_animacion as ga
+    ruta = os.path.join(os.path.dirname(CARPETA), "visualizador", "datos", "goes_cuadros.npz")
+    z = np.load(ruta, allow_pickle=False)
+    imgs = []
+    for v, h in list(zip(z["valor"], z["horas"]))[-6:]:
+        val = v / 10.0
+        imgs.append({"valor": np.where(val > 90, np.nan, val), "lat": z["lat"], "lon": z["lon"],
+                     "hora": dt.datetime.strptime(str(h), "%Y-%m-%d %H:%M")})
+    return ga.gif(imgs, ga.contornos(), ga.dmq())
+
+
+def enviar_animacion(token, chat_id, gif):
+    import uuid
+    limite = uuid.uuid4().hex
+    cuerpo = (f"--{limite}\r\nContent-Disposition: form-data; name=\"chat_id\"\r\n\r\n{chat_id}\r\n"
+              f"--{limite}\r\nContent-Disposition: form-data; name=\"animation\"; filename=\"satelite.gif\"\r\n"
+              f"Content-Type: image/gif\r\n\r\n").encode() + gif + f"\r\n--{limite}--\r\n".encode()
+    req = urllib.request.Request(f"https://api.telegram.org/bot{token}/sendAnimation", cuerpo,
+                                 {"Content-Type": f"multipart/form-data; boundary={limite}"})
+    urllib.request.urlopen(req, timeout=120).read()
+
+
 def mapa_url(i):
     return f"https://www.google.com/maps?q={i['lat']},{i['lon']}"
 
 
 def enviar_ubicaciones(token, chat_id, items, maximo=3):
     """Punto en el mapa de Telegram por cada parroquia con aviso preventivo de lluvia (hasta 3)."""
-    lugares = sorted({i["parroquia"]: i for i in items if i["tipo"] == "condiciones" and i.get("lat") is not None}.items())
+    lugares = sorted({i["parroquia"]: i for i in items if i["tipo"] in ("condiciones", "satelite") and i.get("lat") is not None}.items())
     for parr, i in lugares[:maximo]:
+        titulo = "Nubes de tormenta (satélite)" if i["tipo"] == "satelite" else "Aviso preventivo de lluvia"
         datos = urllib.parse.urlencode({"chat_id": chat_id, "latitude": i["lat"], "longitude": i["lon"],
-                                        "title": f"Aviso preventivo de lluvia: {parr}", "address": i.get("lugar", parr)}).encode()
+                                        "title": f"{titulo}: {parr}", "address": i.get("lugar", parr)}).encode()
         urllib.request.urlopen(f"https://api.telegram.org/bot{token}/sendVenue", datos, timeout=40).read()
 
 
@@ -375,10 +431,12 @@ def procesar(salida, capas, prueba=False):
     if items:
         resumen["mensaje"] = armar_mensaje(items, ahora, cfg)
         token, destinos = destinos_activos()
+        gif = None
         if not destinos:
             anotar(f"{len(items)} avisos nuevos, pero no hay destinos activos en alertas_contactos.json")
         for c in destinos:
-            mios = [i for i in items if i["tipo"] in c.get("recibe", ["aviso", "alerta", "crecida", "condiciones"])]
+            recibe = c.get("recibe", ["aviso", "alerta", "crecida", "condiciones"])
+            mios = [i for i in items if i["tipo"] in recibe or (i["tipo"] == "satelite" and "condiciones" in recibe)]
             if not mios:
                 continue
             texto = armar_mensaje(mios, ahora, cfg)
@@ -389,6 +447,12 @@ def procesar(salida, capas, prueba=False):
                 try:
                     enviar(c, token, texto)
                     if c["_canal"] == "telegram":
+                        if any(i["tipo"] == "satelite" for i in mios):
+                            try:
+                                gif = gif or animacion_satelite()
+                                enviar_animacion(token, c["chat_id"], gif)
+                            except Exception as ex:
+                                anotar(f"No se pudo enviar la animación a {c['nombre']}: {str(ex)[:100]}")
                         try:
                             enviar_ubicaciones(token, c["chat_id"], mios)
                         except Exception as ex:

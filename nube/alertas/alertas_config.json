@@ -20,6 +20,7 @@
     }
   },
   "repetir_aviso_cada_horas": 3,
+  "satelite": {"tope_max_c": -40, "nota": "Tope de nube a 10 km de una estacion; prueba GOES-19 con 62 dias (oct 2025 - sep 2026)"},
   "dato_maximo_atraso_min": 90,
   "enviar_mensajes": true,
   "condiciones_nivel_minimo_telegram": 2,
