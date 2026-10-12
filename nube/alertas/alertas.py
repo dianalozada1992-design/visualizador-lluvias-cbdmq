@@ -92,6 +92,13 @@ def evaluar(salida, capas, cfg, cuencas):
             if d <= qc["radio_vecinas_km"] and (x.get("lluvia_1h") or 0) >= qc["vecina_con_lluvia_mm"]:
                 return True
         return False
+    # parroquias donde ya llueve (alguna estacion con 0,5 mm o mas en la ultima hora): ahi no se envia aviso preventivo
+    parr_lluvia = set()
+    for x in todas:
+        if (x.get("lluvia_1h") or 0) >= qc["vecina_con_lluvia_mm"]:
+            px, _ = ubicar(x, capas, cuencas)
+            if px:
+                parr_lluvia.add(px["nombre"])
     sat_cand = []
     for e in salida.get("cbdmq", []) + salida.get("lluvia_epmaps", []):
         if e.get("sin_datos") or e.get("dato_anterior") or e.get("lat") is None:
@@ -134,7 +141,7 @@ def evaluar(salida, capas, cfg, cuencas):
         # condiciones propicias para lluvia en las 2 horas siguientes (solo estaciones CBDMQ, ver condiciones.py)
         cond = e.get("condiciones") or {}
         # si ya llueve en una estacion vecina (menos de 6 km), no se avisa "puede llover": la lluvia ya llego a la zona
-        if cond.get("nivel") and not con_vecina_lloviendo(e):
+        if cond.get("nivel") and not con_vecina_lloviendo(e) and parroquia not in parr_lluvia:
             p = cond.get("prob_historica") or (0.4 if cond["nivel"] == 2 else 0.25)
             veces = f"{max(1, round(p * 10))} de cada 10"
             senales = [f"humedad {cond['humedad']} %", f"faltan {fmt(cond['dif_rocio'])} °C para que el aire se sature"]
