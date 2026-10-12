@@ -141,6 +141,18 @@ def actuales_epmaps(data, t):
     return {k: v for k, v in out.items() if reciente(v[1], t)}
 
 
+def caida_temperatura(s, t, minutos=15, ventana_min=45):
+    """Mayor baja de temperatura en 'minutos' dentro de los ultimos 'ventana_min' (el granizo enfria el aire de golpe)."""
+    if s is None or len(s) < 3:
+        return None
+    s = s[s.index > t - dt.timedelta(minutes=ventana_min)].resample("5min").mean().dropna()
+    if len(s) < 2:
+        return None
+    pasos = max(1, minutos // 5)
+    caidas = [s.iloc[i] - s.iloc[j] for i in range(len(s)) for j in range(i + 1, min(i + pasos + 1, len(s)))]
+    return round(float(max(caidas)), 1) if caidas else None
+
+
 def resumen_rio(s, t, umbral):
     if s.empty:
         return None
@@ -211,6 +223,9 @@ def telemetria(capas, t):
     except Exception as e:
         print("Sin condiciones de lluvia para paraMH2O:", str(e)[:100], flush=True)
     for x in lluvia:
+        c = x.get("_clima") or {}
+        if c.get("t") is not None:
+            x["caida_temp_15min"] = caida_temperatura(c["t"], t)
         x.pop("_clima", None)
     return lluvia, rios
 
@@ -252,6 +267,8 @@ def cbdmq(capas, t):
             s = pd.Series({pd.Timestamp(x["timestamp"].replace("Z", "")) - pd.Timedelta(hours=5): x["value"]
                            for x in d["data"] if x["sensor_measurement_type"] == "Rain"}).sort_index()
             temp = [x["value"] for x in d["data"] if x["sensor_measurement_type"] == "Temperature"]
+            serie_t = pd.Series({pd.Timestamp(x["timestamp"].replace("Z", "")) - pd.Timedelta(hours=5): x["value"]
+                                 for x in d["data"] if x["sensor_measurement_type"] == "Temperature"}).sort_index()
             r = resumen_lluvia(s, t)
             cond = {"nivel": 0}
             if condiciones and r:
@@ -261,7 +278,7 @@ def cbdmq(capas, t):
                 except Exception:
                     pass
             out.append({**base, **(r or {"sin_datos": True}), "temperatura": round(temp[-1], 1) if temp else None, "condiciones": cond,
-                        "sensores": actuales_licor(d["data"], nombre, t)})
+                        "sensores": actuales_licor(d["data"], nombre, t), "caida_temp_15min": caida_temperatura(serie_t, t)})
         except Exception:
             out.append({**base, "sin_datos": True})
     # si una estacion fallo, se usa su ultimo dato bueno (marcado como anterior)

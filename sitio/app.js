@@ -329,16 +329,17 @@ function dibujarCaudal() {
 function dibujarAlertas() {
   const A = TR.alertas, cont = document.getElementById("lista-alertas"), sub = document.getElementById("sub-alertas");
   if (!A) { sub.textContent = "Sin información de alertas."; cont.innerHTML = ""; return; }
-  const orden = { alerta: 0, crecida: 1, satelite: 2, condiciones: 3, aviso: 4, cuenca: 5, control: 6 };
+  const orden = { granizo: 0, alerta: 1, crecida: 2, satelite: 3, condiciones: 4, aviso: 5, cuenca: 6, control: 7 };
   const act = [...A.activas].sort((a, b) => orden[a.tipo] - orden[b.tipo] || b.nivel - a.nivel || (b.mm_1h || 0) - (a.mm_1h || 0));
   const env = A.enviadas && A.enviadas.length ? `Último envío por Telegram: ${A.hora.slice(11)} a ${A.enviadas.join(", ")}.` : "";
   sub.innerHTML = (act.length ? `${act.length} situaciones activas (revisado ${A.hora.slice(11)}). ` : `Sin alertas (revisado ${A.hora.slice(11)}). `) + env +
     (A.error_envio ? ` <b>No se pudo enviar a ${A.error_envio.split(":")[0]}.</b>` : "");
-  const icono = { alerta: "🔵", crecida: "🌊", satelite: "⛈️", condiciones: "🌥️", aviso: "🟢", cuenca: "💧", control: "⚠️" };
+  const icono = { granizo: "🧊", alerta: "🔵", crecida: "🌊", satelite: "⛈️", condiciones: "🌥️", aviso: "🟢", cuenca: "💧", control: "⚠️" };
   const titulo = a => a.tipo === "alerta" ? ["", "Lluvia fuerte", "Lluvia muy fuerte", "Lluvia muy intensa"][a.nivel] + ` (nivel ${a.nivel})` : a.tipo === "crecida" ? (a.nivel_nombre || "Río creciendo") :
     a.tipo === "cuenca" ? `Lluvia acumulada en la cuenca (${(a.nivel_nombre || "").toLowerCase()}; informativo)` :
     a.tipo === "control" ? "Dato descartado por control de calidad" :
-    a.tipo === "satelite" ? "Nubes de tormenta acercándose (satélite)" :
+    a.tipo === "granizo" ? "Posible granizo" :
+    a.tipo === "satelite" ? (a.muy_fuerte ? "Tormenta muy fuerte acercándose, posible granizo (satélite)" : "Nubes de tormenta acercándose (satélite)") :
     a.tipo === "condiciones" ? (a.nivel === 2 ? "Aviso preventivo de lluvia" : "Condiciones para lluvia (posible, no se envía)") : "Está lloviendo";
   cont.innerHTML = act.map(a => `<div class="fila alerta-${a.tipo}"><span>${icono[a.tipo]}</span><span><b>${titulo(a)}</b><small>${a.texto}` +
     (a.detalle ? `<br><i class="detalle">${a.detalle}</i>` : "") + `</small></span><span></span></div>`).join("");

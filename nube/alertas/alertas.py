@@ -107,7 +107,8 @@ def evaluar(salida, capas, cfg, cuencas):
                  "lat": round(e["lat"], 5), "lon": round(e["lon"], 5)}
         estaciones.append({**e, "_nombre": nombre, "_lugar": lugar, "_cuenca": cue["id"] if cue else None})
         sat_cand.append({**donde, "clave_sat": f"{e.get('red', 'EPMAPS')}:{e['nombre']}", "mm": e.get("lluvia_1h", 0) or 0,
-                         "reciente": e.get("retraso_min", 9999) <= cfg["dato_maximo_atraso_min"]})
+                         "reciente": e.get("retraso_min", 9999) <= cfg["dato_maximo_atraso_min"],
+                         "caida_temp": e.get("caida_temp_15min"), "max_5min": e.get("max_5min") or 0})
         mm = e.get("lluvia_1h", 0) or 0
         # control de calidad (OMM N 8; Zahumensky 2004): valores imposibles se descartan y no generan alerta
         if mm > qc["max_1h_mm"] or (e.get("max_5min") or 0) > qc["max_5min_mm"]:
@@ -150,19 +151,49 @@ def evaluar(salida, capas, cfg, cuencas):
     # tipica, 1 de cada 2 avisos sin lluvia). No se avisa donde ya esta lloviendo.
     sat = salida.get("satelite") or {}
     rs = cfg.get("satelite", {"tope_max_c": -40})
+    # granizo probable: tope de nube muy frio (-65 C) y, en una estacion de la misma brigada, la temperatura baja de golpe
+    # (4 C en 15 min) o caen 3 mm o mas en 5 minutos. Calibrado con la tormenta del 7 de octubre de 2026; se ira ajustando.
+    rg = cfg.get("granizo", {"tope_max_c": -65, "caida_temp_c": 4, "lluvia_5min_mm": 3, "tope_posible_c": -70})
+    con_granizo = set()
+    if sat.get("estaciones"):
+        frio = {}
+        for c in sat_cand:
+            m = sat["estaciones"].get(c["clave_sat"])
+            if m is not None and m <= rg["tope_max_c"] and c["parroquia"] != "Fuera del DMQ":
+                frio.setdefault(c["brigada"], []).append((m, c))
+        for b, lst in frio.items():
+            señal = [c for c in sat_cand if c["brigada"] == b and c["reciente"] and
+                     ((c["caida_temp"] or 0) >= rg["caida_temp_c"] or c["max_5min"] >= rg["lluvia_5min_mm"])]
+            if not señal:
+                continue
+            lst.sort(key=lambda x: x[0])
+            m0, c0 = lst[0]
+            s0 = max(señal, key=lambda c: ((c["caida_temp"] or 0), c["max_5min"]))
+            parrs = sorted({c["parroquia"] for _, c in lst} | {c["parroquia"] for c in señal})
+            pista = (f"la temperatura bajó {fmt(s0['caida_temp'])} °C de golpe" if (s0["caida_temp"] or 0) >= rg["caida_temp_c"]
+                     else f"cayeron {fmt(s0['max_5min'])} mm en 5 minutos")
+            con_granizo.add(b)
+            activas.append({"tipo": "granizo", "clave": "granizo:" + b, "nivel": 2, "parroquia": s0["parroquia"], "brigada": b,
+                            "parroquias": parrs, "lat": s0["lat"], "lon": s0["lon"], "lugar": s0["lugar"], "mm_1h": s0["mm"], "tope_c": m0,
+                            "pista": f"{pista} en {s0['parroquia']}",
+                            "texto": f"{', '.join(parrs)}: tormenta muy fuerte con posible granizo ({pista} en {s0['parroquia']}).",
+                            "detalle": f"Satélite GOES-19 ({sat['hora'][11:]}): tope de nube de {fmt(m0)} °C; estación {s0['estacion']}."})
     if sat.get("estaciones"):
         lloviendo = {c["brigada"] for c in sat_cand if c["reciente"] and c["mm"] >= 1}
         por_brig = {}
         for c in sat_cand:
             m = sat["estaciones"].get(c["clave_sat"])
-            if m is not None and m <= rs["tope_max_c"] and c["parroquia"] != "Fuera del DMQ" and c["brigada"] not in lloviendo:
+            if (m is not None and m <= rs["tope_max_c"] and c["parroquia"] != "Fuera del DMQ" and c["brigada"] not in lloviendo
+                    and c["brigada"] not in con_granizo):
                 por_brig.setdefault(c["brigada"], []).append((m, c))
         for b, lst in por_brig.items():
             lst.sort(key=lambda x: x[0])
             m0, c0 = lst[0]
             parrs = sorted({c["parroquia"] for _, c in lst})
-            activas.append({"tipo": "satelite", "clave": "satelite:" + b, "nivel": 1, "parroquia": c0["parroquia"], "brigada": b,
-                            "parroquias": parrs, "lat": c0["lat"], "lon": c0["lon"], "lugar": c0["lugar"], "mm_1h": 0, "tope_c": m0,
+            muy_fuerte = m0 <= rg["tope_posible_c"]
+            activas.append({"tipo": "satelite", "clave": "satelite:" + b, "nivel": 2 if muy_fuerte else 1, "parroquia": c0["parroquia"],
+                            "brigada": b, "parroquias": parrs, "lat": c0["lat"], "lon": c0["lon"], "lugar": c0["lugar"], "mm_1h": 0,
+                            "tope_c": m0, "muy_fuerte": muy_fuerte,
                             "texto": f"{', '.join(parrs)}: nubes de tormenta acercándose, posible lluvia en la próxima hora.",
                             "detalle": f"Satélite GOES-19, imagen de las {sat['hora'][11:]}: tope de nube de {fmt(m0)} °C cerca de la estación {c0['estacion']}."})
     # riesgo de crecida por microcuenca
@@ -287,12 +318,21 @@ def armar_mensaje(items, ahora, cfg):
         for parr, i in sorted({i["parroquia"]: i for i in co}.items()):
             lineas.append(f"• {parr} · [📍 ver ubicación]({mapa_url(i)})" if i.get("lat") is not None else f"• {parr}")
         partes.append("\n".join(lineas))
+    gr = [i for i in items if i["tipo"] == "granizo"]
+    if gr:
+        lineas = ["🧊 *POSIBLE GRANIZO*", "Tormenta muy fuerte en:"]
+        for i in sorted(gr, key=lambda x: x["tope_c"]):
+            lineas.append(f"• {', '.join(i['parroquias'][:6])} · [📍 ver ubicación]({mapa_url(i)})")
+            lineas.append(f"   ({i['pista']})")
+        lineas.append("👉 Vigilar techos, canaletas y sumideros; puede haber acumulación de granizo en vías.")
+        partes.append("\n".join(lineas))
     sa = [i for i in items if i["tipo"] == "satelite"]
     if sa:
         lineas = ["⛈️ *AVISO PREVENTIVO DE LLUVIA (satélite)*",
                   "Nubes de tormenta acercándose. Posible lluvia en la próxima hora en:"]
         for i in sorted(sa, key=lambda x: x["tope_c"]):
-            lineas.append(f"• {', '.join(i['parroquias'][:6])} · [📍 ver ubicación]({mapa_url(i)})")
+            extra = " · ⚠️ tormenta muy fuerte, posible granizo" if i.get("muy_fuerte") else ""
+            lineas.append(f"• {', '.join(i['parroquias'][:6])}{extra} · [📍 ver ubicación]({mapa_url(i)})")
         partes.append("\n".join(lineas))
     av = [i for i in items if i["tipo"] == "aviso"]
     if av:
@@ -350,9 +390,9 @@ def mapa_url(i):
 
 def enviar_ubicaciones(token, chat_id, items, maximo=3):
     """Punto en el mapa de Telegram por cada parroquia con aviso preventivo de lluvia (hasta 3)."""
-    lugares = sorted({i["parroquia"]: i for i in items if i["tipo"] in ("condiciones", "satelite") and i.get("lat") is not None}.items())
+    lugares = sorted({i["parroquia"]: i for i in items if i["tipo"] in ("condiciones", "satelite", "granizo") and i.get("lat") is not None}.items())
     for parr, i in lugares[:maximo]:
-        titulo = "Nubes de tormenta (satélite)" if i["tipo"] == "satelite" else "Aviso preventivo de lluvia"
+        titulo = {"satelite": "Nubes de tormenta (satélite)", "granizo": "Posible granizo"}.get(i["tipo"], "Aviso preventivo de lluvia")
         datos = urllib.parse.urlencode({"chat_id": chat_id, "latitude": i["lat"], "longitude": i["lon"],
                                         "title": f"{titulo}: {parr}", "address": i.get("lugar", parr)}).encode()
         urllib.request.urlopen(f"https://api.telegram.org/bot{token}/sendVenue", datos, timeout=40).read()
@@ -436,7 +476,7 @@ def procesar(salida, capas, prueba=False):
             anotar(f"{len(items)} avisos nuevos, pero no hay destinos activos en alertas_contactos.json")
         for c in destinos:
             recibe = c.get("recibe", ["aviso", "alerta", "crecida", "condiciones"])
-            mios = [i for i in items if i["tipo"] in recibe or (i["tipo"] == "satelite" and "condiciones" in recibe)]
+            mios = [i for i in items if i["tipo"] in recibe or (i["tipo"] in ("satelite", "granizo") and ("condiciones" in recibe or "alerta" in recibe))]
             if not mios:
                 continue
             texto = armar_mensaje(mios, ahora, cfg)
@@ -447,7 +487,7 @@ def procesar(salida, capas, prueba=False):
                 try:
                     enviar(c, token, texto)
                     if c["_canal"] == "telegram":
-                        if any(i["tipo"] == "satelite" for i in mios):
+                        if any(i["tipo"] in ("satelite", "granizo") for i in mios):
                             try:
                                 gif = gif or animacion_satelite()
                                 enviar_animacion(token, c["chat_id"], gif)
