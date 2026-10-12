@@ -371,6 +371,29 @@ def satelite(capas):
     return {"hora": h_local, "estaciones": est}
 
 
+def reverificar_lluvia(estaciones, minutos=30):
+    """Vuelve a pedir a LI-COR la lluvia de los ultimos 'minutos' de las estaciones con aviso preventivo posible.
+    Si ya registran lluvia, se apaga el aviso (el sensor mide cada 5 min pero LI-COR publica con unos minutos de retraso)."""
+    con_aviso = [e for e in estaciones if (e.get("condiciones") or {}).get("nivel")]
+    if not con_aviso:
+        return
+    tok = os.environ.get("LICOR_TOKEN") or re.search(r"Token\s*:\s*(\S+)", open(os.path.join(BASE, "Api.txt"), encoding="utf8").read()).group(1)
+    fin = dt.datetime.now(dt.timezone.utc).replace(tzinfo=None)
+    ini = fin - dt.timedelta(minutes=minutos)
+    for e in con_aviso:
+        sn = CBDMQ_SN.get(e["nombre"])
+        if not sn:
+            continue
+        q = urllib.parse.urlencode({"loggers": sn, "start_date_time": ini.strftime("%Y-%m-%d %H:%M:%S"), "end_date_time": fin.strftime("%Y-%m-%d %H:%M:%S")})
+        d = json.load(urllib.request.urlopen(urllib.request.Request("https://api.licor.cloud/v1/data?" + q,
+                                                                    headers={"Authorization": "Bearer " + tok}), timeout=30))
+        mm = sum(x["value"] or 0 for x in d.get("data", []) if x["sensor_measurement_type"] == "Rain")
+        if mm >= 0.2:
+            e["condiciones"] = {"nivel": 0, "nota": f"ya llueve: {mm:.1f} mm en los ultimos {minutos} min (revision antes de avisar)"}
+            e["lluvia_1h"] = max(e.get("lluvia_1h") or 0, round(mm, 1))
+            print(f"Aviso preventivo anulado en {e['nombre']}: ya registra {mm:.1f} mm", flush=True)
+
+
 # tiempo maximo por fuente: si una no responde, se usan sus datos anteriores y la actualizacion termina igual
 LIMITE_S = {"cbdmq": 240, "telemetria": 240, "pronostico": 300, "clima": 180, "satelite": 120}
 
@@ -432,6 +455,12 @@ def main():
     for k in ("cbdmq", "lluvia_epmaps", "rios", "pronostico", "clima"):
         if k not in salida and k in previo:
             salida[k] = previo[k]; salida.setdefault("fuentes_anteriores", []).append(k)
+    # ultima revision antes de avisar: las estaciones CBDMQ con condiciones para lluvia se consultan otra vez a LI-COR;
+    # si ya empezo a llover (el dato pudo publicarse despues de la consulta inicial), no se envia el aviso preventivo
+    try:
+        reverificar_lluvia(salida.get("cbdmq", []))
+    except Exception as e:
+        print("Sin reverificacion de lluvia:", str(e)[:100], flush=True)
     # alertas por Telegram (lluvia de 2 mm, 10/20/30 mm en 1 hora y riesgo de crecida)
     try:
         sys.path.insert(0, os.path.join(BASE, "alertas"))
