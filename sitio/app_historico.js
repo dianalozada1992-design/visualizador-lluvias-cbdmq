@@ -56,7 +56,7 @@ document.getElementById("periodo-nota").textContent = `Datos disponibles del ${D
 
 // ---------------------------------------------------------------- mapa
 let capaH = L.geoJSON(null).addTo(mapaH), capaEstH = L.layerGroup().addTo(mapaH), capaEventos = L.layerGroup().addTo(mapaH);
-L.geoJSON(CAPAS.brigadas, { style: { color: "#1f3f73", weight: 2, fill: false }, interactive: false }).addTo(mapaH);
+L.geoJSON(CAPAS.brigadas, { style: { color: "#3a3a3c", weight: 2, fill: false }, interactive: false }).addTo(mapaH);
 const graficos = {};
 function grafico(id, cfg) { if (graficos[id]) graficos[id].destroy(); graficos[id] = new Chart(document.getElementById(id), cfg); }
 const v10 = x => x >= 0 ? x / 10 : null;
@@ -132,7 +132,7 @@ function actualizarHistorico() {
     pane: "relleno",
     style: f => { const r = res[f.properties.id]; const v = r ? valor(r) : null; const s = selIds.has(f.properties.id);
       const fc = ind === "emergencias" ? colE(v || 0) : v === null || v === undefined ? "#f4f6f8" : ind === "lluvia" ? color(v, esc) : color(v, CLASES_AHORA.lluvia_1h.map((c, k) => [[0.2, 5, 10, 20, 30, Infinity][k] || Infinity, c[1], c[2]]));
-      return { fillColor: fc, fillOpacity: s ? .8 : .2, color: s && sel.length < 65 ? "#1f3f73" : "#fff", weight: s && sel.length < 65 ? 2 : .7 }; },
+      return { fillColor: fc, fillOpacity: s ? .8 : .2, color: s && sel.length < 65 ? "#3a3a3c" : "#fff", weight: s && sel.length < 65 ? 2 : .7 }; },
     onEachFeature: (f, l) => {
       const r = res[f.properties.id];
       l.bindTooltip(`<b>${f.properties.nombre}</b><br>Emergencias: ${r ? r.emerg : 0}` + (r && r.ref ?
@@ -148,13 +148,13 @@ function actualizarHistorico() {
   capaEstH.clearLayers();
   if (document.getElementById("ver-est-h").checked) estRes.forEach(({ e, r }) => {
     const m = L.circleMarker([e.la, e.lo], { radius: e.r === "CBDMQ" ? 8 : 6, fillColor: color(r.total, esc), fillOpacity: .95,
-      color: e.r === "CBDMQ" ? "#7d3c98" : e.r === "REMMAQ" ? "#117a65" : "#1f3f73", weight: e.r === "CBDMQ" ? 2.5 : 1.3 });
+      color: e.r === "CBDMQ" ? "#c00d0d" : e.r === "REMMAQ" ? "#117a65" : "#3a3a3c", weight: e.r === "CBDMQ" ? 2.5 : 1.3 });
     m.bindTooltip(`<b>${e.n}</b> (${e.r})<br>${unDia ? "Lluvia del día" : "Lluvia del período"}: ${fmt(r.total)} mm` + (r.max_h !== null ? `<br>Máx. en 1 hora: ${fmt(r.max_h)} mm` : "") +
       (unDia ? "" : `<br>Día más lluvioso: ${fmt(r.max_dia)} mm (${r.fecha_max})`) + `<br><span style="color:#5d6d7e">${r.dias} día(s) con dato</span>`);
     capaEstH.addLayer(m);
   });
   document.getElementById("leyenda-h2").innerHTML = `<b>Estaciones: ${unDia ? "lluvia del día" : "lluvia del período"}</b>` + esc.map(c => `<span class="caja"><i class="circulo" style="background:${c[1]}"></i>${c[2]}</span>`).join("") +
-    '<span class="caja"><i class="circulo" style="border:2.5px solid #7d3c98"></i>CBDMQ</span><span class="caja"><i class="circulo" style="border:1.5px solid #1f3f73"></i>EPMAPS</span><span class="caja"><i class="circulo" style="border:1.5px solid #117a65"></i>REMMAQ</span>' +
+    '<span class="caja"><i class="circulo" style="border:2.5px solid #c00d0d"></i>CBDMQ</span><span class="caja"><i class="circulo" style="border:1.5px solid #3a3a3c"></i>EPMAPS</span><span class="caja"><i class="circulo" style="border:1.5px solid #117a65"></i>REMMAQ</span>' +
     '<span class="caja"><i style="background:#c0392b;width:10px;height:10px;transform:rotate(45deg)"></i>Emergencia</span>';
   // ---- mapa: emergencias
   capaEventos.clearLayers();
@@ -222,7 +222,7 @@ function actualizarHistorico() {
     ${unDia ? "" : '<th class="num" data-c="fuertes">Días fuertes</th>'}<th>Estación de referencia</th></tr></thead><tbody>` +
     filas.map(r => `<tr data-id="${r.p.id}" class="${r.p.id === fP.value ? "sel" : ""}"><td>${r.p.nombre}</td><td>${reparar(r.p.brigada)}</td>
       <td class="num"><span class="barrita" style="width:${r.emerg / maxEm * 50}px;background:#c0392b"></span>${r.emerg}</td>
-      <td class="num"><span class="pastilla" style="background:${color(r.total ?? 0, esc)};color:${(r.total ?? 0) >= esc[1][0] ? "#fff" : "#1f3f73"}">${fmt(r.total)}</span></td>
+      <td class="num"><span class="pastilla" style="background:${color(r.total ?? 0, esc)};color:${(r.total ?? 0) >= esc[1][0] ? "#fff" : "#3a3a3c"}">${fmt(r.total)}</span></td>
       <td class="num">${fmt(r.max_dia)}</td><td class="num">${fmt(r.max_h)}</td>${unDia ? "" : `<td class="num">${r.fuertes}</td>`}
       <td style="color:#5d6d7e">${r.ref ? `${r.ref.e.n} (${fmt(r.ref.km)} km)` : "sin datos"}</td></tr>`).join("") + "</tbody>";
   document.querySelectorAll("#tabla-h th[data-c]").forEach(th => th.onclick = () => { orden.col = th.dataset.c; actualizarHistorico(); });
@@ -265,7 +265,7 @@ actualizarHistorico();
   if (!ED || !ED.dias || !Object.keys(ED.dias).length) {
     document.getElementById("hh-nota").textContent = "Todavía no hay días guardados: se guardan cada día después de la 1h00."; return;
   }
-  const VARS = [["lluvia", "Lluvia (mm en cada hora)", "bar", "#2f86c8"], ["temp", "Temperatura (°C)", "line", "#1f3f73"],
+  const VARS = [["lluvia", "Lluvia (mm en cada hora)", "bar", "#2f86c8"], ["temp", "Temperatura (°C)", "line", "#3a3a3c"],
     ["hr", "Humedad relativa (%)", "line", "#5bbfa8"], ["viento", "Viento (km/h)", "line", "#2ca25f"],
     ["rad", "Radiación solar (W/m²)", "line", "#756bb1"], ["presion", "Presión atmosférica (hPa)", "line", "#4292c6"]];
   const vals = a => (a || []).filter(x => x !== null && x !== undefined);

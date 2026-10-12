@@ -1,12 +1,15 @@
 :root {
-  --azul: #1f3f73;
-  --azul-medio: #2f86c8;
-  --fondo: #f3f6fa;
+  /* colores institucionales del CBDMQ (sitio oficial bomberosquito.gob.ec) */
+  --azul: #c00d0d;        /* rojo institucional: titulos, botones y enlaces */
+  --azul-medio: #e12726;  /* rojo del logo */
+  --carbon: #252324;      /* cabecera, encabezados de tablas y cifras */
+  --gris: #4d4d4f;
+  --fondo: #f3f4f5;
   --tarjeta: #ffffff;
-  --borde: #d7dfea;
-  --texto: #1b2631;
-  --suave: #5d6d7e;
-  --sombra: 0 1px 3px rgba(20, 40, 80, .08);
+  --borde: #dcdcde;
+  --texto: #252324;
+  --suave: #616163;
+  --sombra: 0 1px 3px rgba(37, 35, 36, .10);
 }
 * { box-sizing: border-box; }
 body { margin: 0; font-family: "Segoe UI", system-ui, -apple-system, Roboto, Arial, sans-serif; color: var(--texto); background: var(--fondo); }
@@ -16,21 +19,21 @@ h2 { font-size: 15px; margin: 0 0 4px; color: var(--azul); }
 .nota { font-size: 11.5px; color: var(--suave); margin: 8px 0 0; }
 .separado { margin-top: 14px; }
 
-.cabecera { background: var(--azul); color: #fff; display: flex; align-items: center; gap: 18px; padding: 10px 18px; flex-wrap: wrap; }
+.cabecera { background: var(--carbon); border-bottom: 4px solid #c00d0d; color: #fff; display: flex; align-items: center; gap: 18px; padding: 10px 18px; flex-wrap: wrap; }
 .titulo { display: flex; align-items: center; gap: 12px; }
-.titulo p { margin: 2px 0 0; font-size: 12px; color: #c9d8ee; }
-.logo { background: #fff; color: var(--azul); font-weight: 800; border-radius: 8px; padding: 8px 10px; font-size: 14px; letter-spacing: .5px; }
+.titulo p { margin: 2px 0 0; font-size: 12px; color: #cfcfd1; }
+.logo { background: #c00d0d; color: #fff; font-weight: 800; border-radius: 8px; padding: 8px 10px; font-size: 14px; letter-spacing: .5px; }
 .pestanas { display: flex; gap: 6px; margin-left: auto; }
-.pestana { background: transparent; border: 1px solid #6f8fbf; color: #e6eef9; padding: 8px 14px; border-radius: 20px; cursor: pointer; font-size: 13px; }
-.pestana.activa { background: #fff; color: var(--azul); border-color: #fff; font-weight: 700; }
-.estado { display: flex; flex-direction: column; align-items: flex-end; font-size: 12px; color: #dbe7f5; }
+.pestana { background: transparent; border: 1px solid #6b6b6e; color: #e6e6e6; padding: 8px 14px; border-radius: 20px; cursor: pointer; font-size: 13px; }
+.pestana.activa { background: #c00d0d; color: #fff; border-color: #c00d0d; font-weight: 700; }
+.estado { display: flex; flex-direction: column; align-items: flex-end; font-size: 12px; color: #cfcfd1; }
 .autora { font-weight: 600; color: #fff; }
 
 .pagina { display: none; padding: 14px 18px 4px; }
 .pagina.activa { display: block; }
 .cifras { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px; margin-bottom: 12px; }
 .cifra { background: var(--tarjeta); border: 1px solid var(--borde); border-radius: 10px; padding: 10px 12px; box-shadow: var(--sombra); }
-.cifra .valor { font-size: 24px; font-weight: 800; color: var(--azul); }
+.cifra .valor { font-size: 24px; font-weight: 800; color: var(--carbon); }
 .cifra .rotulo { font-size: 12px; color: var(--suave); }
 .cifra .detalle { font-size: 11.5px; color: var(--texto); margin-top: 2px; }
 
@@ -59,7 +62,7 @@ h2 { font-size: 15px; margin: 0 0 4px; color: var(--azul); }
 .fila { display: grid; grid-template-columns: 14px 1fr auto; gap: 8px; align-items: center; padding: 6px 8px; border-radius: 8px; cursor: pointer; font-size: 13px; }
 .fila:hover { background: #eef3fa; }
 .fila .punto { width: 12px; height: 12px; border-radius: 50%; }
-.fila .mm { font-weight: 700; color: var(--azul); white-space: nowrap; }
+.fila .mm { font-weight: 700; color: var(--carbon); white-space: nowrap; }
 .fila small { color: var(--suave); display: block; font-size: 11px; }
 .flecha { font-size: 16px; font-weight: 800; }
 .creciendo { color: #1f6fb2; } .estable { color: #7f8c8d; } .bajando { color: #48a07a; } .alto { color: #0d2f6b; }
@@ -83,7 +86,7 @@ h2 { font-size: 15px; margin: 0 0 4px; color: var(--azul); }
 .dos-columnas { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 12px; }
 .tabla-contenedor { max-height: 420px; overflow: auto; }
 table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
-th { position: sticky; top: 0; background: var(--azul); color: #fff; text-align: left; padding: 6px 8px; cursor: pointer; white-space: nowrap; }
+th { position: sticky; top: 0; background: var(--carbon); color: #fff; text-align: left; padding: 6px 8px; cursor: pointer; white-space: nowrap; }
 td { padding: 5px 8px; border-bottom: 1px solid #edf1f6; }
 td.num, th.num { text-align: right; }
 tr:hover td { background: #eef3fa; cursor: pointer; }
@@ -125,15 +128,15 @@ tr.sel td { background: #dbe9f8; font-weight: 600; }
 .fila.alerta-aviso { border-left: 4px solid #48a07a; }
 .fila[class*="alerta-"] small { white-space: normal; }
 
-.franja-alertas { border-left: 5px solid #1f3f73; }
+.franja-alertas { border-left: 5px solid #c00d0d; }
 .sub-inline { font-weight: 400; font-size: 12px; color: var(--suave); }
 .rejilla-alertas { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 6px; max-height: 260px; overflow-y: auto; }
 .rejilla-alertas .fila { cursor: default; }
 
 a.pestana { text-decoration: none; display: inline-block; }
-.sesion { margin-top: 4px; color: #dbe7f5; }
-.sesion a { color: #fff; font-weight: 700; border: 1px solid #6f8fbf; border-radius: 14px; padding: 2px 10px; text-decoration: none; }
-.sesion a:hover { background: #fff; color: var(--azul); }
+.sesion { margin-top: 4px; color: #cfcfd1; }
+.sesion a { color: #fff; font-weight: 700; border: 1px solid #6b6b6e; border-radius: 14px; padding: 2px 10px; text-decoration: none; }
+.sesion a:hover { background: #c00d0d; color: #fff; border-color: #c00d0d; }
 .fila.alerta-condiciones { background: #eef6f3; border-left: 4px solid #5bbfa8; }
 .enlace-boletin { color: #fff; font-weight: 700; text-decoration: none; margin-top: 4px; }
 .enlace-boletin:hover { text-decoration: underline; }
@@ -142,13 +145,13 @@ a.pestana { text-decoration: none; display: inline-block; }
 .fila.alerta-control { background: #f6f6f6; border-left: 4px solid #7f8c8d; }
 .tabla-popup { border-collapse: collapse; margin-top: 6px; font-size: 12px; }
 .tabla-popup th, .tabla-popup td { padding: 2px 6px; border-bottom: 1px solid #e5e9ef; text-align: left; }
-.brig-clima { font-size: 11.5px; margin-top: 4px; color: #1f3f73; }
+.brig-clima { font-size: 11.5px; margin-top: 4px; color: var(--gris); }
 .tabla-popup { width: auto; }
-.tabla-popup th { position: static; background: #eaf0f8; color: var(--azul); cursor: default; padding: 3px 6px; font-size: 11.5px; }
+.tabla-popup th { position: static; background: #ececee; color: var(--carbon); cursor: default; padding: 3px 6px; font-size: 11.5px; }
 .tabla-popup td { white-space: nowrap; }
 #sel-var { margin-left: 6px; }
 .nota-popup { font-size: 10.5px; color: #5b6b80; margin-top: 4px; max-width: 400px; }
-.etq-sensor { background: rgba(255,255,255,.88); border: 1px solid #c9d3e0; border-radius: 4px; padding: 0 4px; font-size: 10.5px; font-weight: 700; color: #1f3f73; box-shadow: none; }
+.etq-sensor { background: rgba(255,255,255,.88); border: 1px solid #c9d3e0; border-radius: 4px; padding: 0 4px; font-size: 10.5px; font-weight: 700; color: var(--carbon); box-shadow: none; }
 .etq-sensor::before { display: none; }
 .segmentado.apagado { opacity: .45; }
 .enlace-hh { font-size: 12.5px; font-weight: 700; color: var(--azul); text-decoration: none; }

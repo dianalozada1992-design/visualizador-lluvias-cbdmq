@@ -35,7 +35,7 @@ function iconoSVG(tipo, noche) {
 // ---------------------------------------------------------------- mapa base
 const mapa = mapaBase("mapa");
 
-const capaBrigadas = L.geoJSON(CAPAS.brigadas, { style: { color: "#1f3f73", weight: 2.2, fill: false }, interactive: false,
+const capaBrigadas = L.geoJSON(CAPAS.brigadas, { style: { color: "#3a3a3c", weight: 2.2, fill: false }, interactive: false,
   onEachFeature: (f, l) => l.bindTooltip(reparar(f.properties.nombre), { permanent: false }) }).addTo(mapa);
 const RIOS_PRINCIPALES = ["Machángara", "Monjas", "San Pedro", "Guayllabamba", "Pita", "Pisque", "Cinto", "Grande", "Chiche", "Guambi", "Coyago", "Blanco"];
 const capaRios = L.layerGroup().addTo(mapa);
@@ -163,7 +163,7 @@ function dibujarBrigadas() {
   const nombres = Object.keys(pr.brigadas).sort((a, b) => orden.indexOf(reparar(a)) - orden.indexOf(reparar(b)));
   cont.innerHTML = nombres.map(b => {
     const d = pr.brigadas[b].dias[dia]; if (!d) return "";
-    return `<div class="brig"><div class="brig-cab"><b>${reparar(b)}</b><span class="brig-mm" style="background:${color(d.media_mm, CLASES_DIA)};color:${d.media_mm >= 5 ? "#fff" : "#1f3f73"}">${fmt(d.media_mm, 0)} mm</span></div>
+    return `<div class="brig"><div class="brig-cab"><b>${reparar(b)}</b><span class="brig-mm" style="background:${color(d.media_mm, CLASES_DIA)};color:${d.media_mm >= 5 ? "#fff" : "#3a3a3c"}">${fmt(d.media_mm, 0)} mm</span></div>
       <div class="periodos">${d.periodos.map(p => `<div>${p.periodo}${iconoSVG(p.icono, p.noche)}<b>${fmt(p.mm)} mm</b></div>`).join("")}</div>
       <div class="brig-top">Más lluvia en: ${d.mas_lluvia.map(x => `${x[0]} (${fmt(x[1], 0)} mm)`).join(", ")}</div>${climaBrigada(b, dia)}</div>`;
   }).join("");
@@ -220,7 +220,7 @@ function popupEstacion(e) {
 function graficoPopup(id, serie, tipo, etiqueta, umbral) {
   setTimeout(() => {
     const c = document.getElementById(id); if (!c || !serie) return;
-    const conj = [{ type: tipo, label: etiqueta, data: serie.map(x => x[1]), backgroundColor: "#2f86c8", borderColor: "#1f3f73", pointRadius: 0, borderWidth: tipo === "line" ? 2 : 0 }];
+    const conj = [{ type: tipo, label: etiqueta, data: serie.map(x => x[1]), backgroundColor: "#2f86c8", borderColor: "#3a3a3c", pointRadius: 0, borderWidth: tipo === "line" ? 2 : 0 }];
     if (umbral) conj.push({ type: "line", label: "Umbral de crecida", data: serie.map(() => umbral), borderColor: "#173f8f", borderDash: [5, 4], pointRadius: 0, borderWidth: 1.5 });
     new Chart(c, { data: { labels: serie.map(x => x[0].slice(11, 16)), datasets: conj },
       options: { animation: false, maintainAspectRatio: false, plugins: { legend: { display: !!umbral, labels: { boxWidth: 10, font: { size: 10 } } } },
@@ -234,7 +234,7 @@ function dibujarEstaciones() {
     const val = e.sin_datos ? null : e[v];
     const radio = e.red === "CBDMQ" ? 9 : 7;
     const m = L.circleMarker([e.lat, e.lon], { radius: val > 0 ? radio + Math.min(val, 20) / 3 : radio,
-      fillColor: val === null ? "#ffffff" : color(val, clases), fillOpacity: .95, color: e.red === "CBDMQ" ? "#7d3c98" : "#1f3f73",
+      fillColor: val === null ? "#ffffff" : color(val, clases), fillOpacity: .95, color: e.red === "CBDMQ" ? "#c00d0d" : "#3a3a3c",
       weight: e.red === "CBDMQ" ? 2.5 : 1.2, dashArray: val === null ? "2 2" : null });
     m.on("click", () => { const p = popupEstacion(e); m.bindPopup(p.html).openPopup(); graficoPopup(p.id, e.horaria, "bar", "Lluvia por hora (mm)"); });
     m.bindTooltip(`${e.red === "CBDMQ" ? "CBDMQ " : ""}${e.nombre}: ${val === null ? "sin datos" : fmt(val) + " mm"}`);
@@ -244,7 +244,7 @@ function dibujarEstaciones() {
   if (estado.sensor === "lluvia") {
     leyenda("leyenda-estaciones", `Lluvia medida ${NOMBRE_VENTANA[v]} (mm)`, clases, true);
     document.getElementById("leyenda-estaciones").insertAdjacentHTML("beforeend",
-      '<span class="caja"><i class="circulo" style="border:2.5px solid #7d3c98"></i>CBDMQ</span><span class="caja"><i class="circulo" style="border:1.5px solid #1f3f73"></i>EPMAPS</span><span class="caja"><i class="circulo" style="border:1px dashed #1f3f73;background:#fff"></i>Sin datos</span>');
+      '<span class="caja"><i class="circulo" style="border:2.5px solid #c00d0d"></i>CBDMQ</span><span class="caja"><i class="circulo" style="border:1.5px solid #3a3a3c"></i>EPMAPS</span><span class="caja"><i class="circulo" style="border:1px dashed #3a3a3c;background:#fff"></i>Sin datos</span>');
   }
   const lista = estacionesTodas().filter(e => !e.sin_datos && e[v] > 0).sort((a, b) => b[v] - a[v]);
   document.getElementById("sub-lloviendo").textContent = lista.length ? `${lista.length} estaciones registraron lluvia ${NOMBRE_VENTANA[v]}.` : `Ninguna estación registró lluvia ${NOMBRE_VENTANA[v]}.`;
@@ -260,7 +260,7 @@ function dibujarSensor() {
   const lista = estacionesTodas().filter(e => e.sensores && e.sensores[k]);
   lista.forEach(e => {
     const m = L.circleMarker([e.lat, e.lon], { radius: e.red === "CBDMQ" ? 9 : 7, fillColor: color(e.sensores[k][0], S.clases), fillOpacity: .95,
-      color: e.red === "CBDMQ" ? "#7d3c98" : "#1f3f73", weight: e.red === "CBDMQ" ? 2.5 : 1.2 });
+      color: e.red === "CBDMQ" ? "#c00d0d" : "#3a3a3c", weight: e.red === "CBDMQ" ? 2.5 : 1.2 });
     m.on("click", () => { const p = popupEstacion(e); m.bindPopup(p.html).openPopup(); graficoPopup(p.id, e.horaria, "bar", "Lluvia por hora (mm)"); });
     m.bindTooltip(textoSensor(e, k), { permanent: true, direction: "right", offset: [7, 0], className: "etq-sensor" });
     m.on("mouseover", () => { const el = m.getTooltip().getElement(); if (el) { el.style.visibility = ""; el.style.zIndex = 900; } });
@@ -271,7 +271,7 @@ function dibujarSensor() {
   ocultarEncimadas();
   leyenda("leyenda-estaciones", `${S.nombre} en este momento (${S.u})`, S.clases, true);
   document.getElementById("leyenda-estaciones").insertAdjacentHTML("beforeend",
-    `<span class="caja">${lista.length} estaciones con este sensor (CBDMQ en morado, EPMAPS en azul).` +
+    `<span class="caja">${lista.length} estaciones con este sensor (CBDMQ en rojo, EPMAPS en gris).` +
     (k === "presion" ? " La presión depende sobre todo de la altura de cada estación." : "") +
     " Acerque el mapa para ver el valor de todas; pase el cursor o haga clic en una estación para ver sus datos.</span>");
 }
@@ -303,7 +303,7 @@ function dibujarCaudal() {
   rios.forEach(r => { (porEst[r.codigo] = porEst[r.codigo] || []).push(r); });
   Object.values(porEst).forEach(lst => {
     const r0 = lst.find(x => x.variable.startsWith("Caudal")) || lst[0];
-    const icono = L.divIcon({ className: "", html: `<div style="background:#fff;border:2px solid #1f3f73;border-radius:6px;padding:1px 4px;font-size:12px;font-weight:800" class="${clase(r0)}">${flecha(r0)}</div>`, iconSize: [26, 20] });
+    const icono = L.divIcon({ className: "", html: `<div style="background:#fff;border:2px solid #3a3a3c;border-radius:6px;padding:1px 4px;font-size:12px;font-weight:800" class="${clase(r0)}">${flecha(r0)}</div>`, iconSize: [26, 20] });
     const m = L.marker([r0.lat, r0.lon], { icon: icono });
     m.on("click", () => {
       const id = "g" + Math.random().toString(36).slice(2);
