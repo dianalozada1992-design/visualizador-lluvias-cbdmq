@@ -121,14 +121,14 @@ def evaluar(salida, capas, cfg, cuencas):
         nivel = sum(mm >= u for u in cfg["alerta_lluvia_1h_mm"])
         if nivel:
             aislada = not con_vecina_lloviendo(e)
-            activas.append({"tipo": "alerta", "clave": "alerta:" + nombre, "nivel": nivel, **donde, "mm_1h": mm,
+            activas.append({"tipo": "alerta", "clave": "alerta:" + parroquia, "nivel": nivel, **donde, "mm_1h": mm,
                             "aislada": aislada, "suelo_cargado": cargado, "rio": cue["rio"] if cue else None,
                             "texto": f"{parroquia} (brigada {brigada}): {fmt(mm)} mm de lluvia en la última hora"
                                      + (" · suelo cargado por lluvias de días anteriores" if cargado else "")
                                      + (" · registrado en una sola estación, por confirmar" if aislada else ""),
                             "detalle": f"Estación {nombre}" + (f"; lluvia de los 3 días anteriores: {fmt(previa)} mm" if previa is not None else "")})
         elif mm >= cfg["aviso_lluvia_1h_mm"]:
-            activas.append({"tipo": "aviso", "clave": "aviso:" + nombre, "nivel": 1, **donde, "mm_1h": mm,
+            activas.append({"tipo": "aviso", "clave": "aviso:" + parroquia, "nivel": 1, **donde, "mm_1h": mm,
                             "texto": f"{parroquia} (brigada {brigada}): {fmt(mm)} mm en la última hora",
                             "detalle": f"Estación {nombre}"})
         # condiciones propicias para lluvia en las 2 horas siguientes (solo estaciones CBDMQ, ver condiciones.py)
@@ -141,7 +141,7 @@ def evaluar(salida, capas, cfg, cuencas):
             if cond.get("caida_sol", 0) >= 0.1:
                 senales.append("el sol se nubló de golpe")
             senales.append(f"el modelo anuncia {fmt(cond['mm_modelo_2h'])} mm")
-            activas.append({"tipo": "condiciones", "clave": "condiciones:" + nombre, "nivel": cond["nivel"], **donde, "mm_1h": 0,
+            activas.append({"tipo": "condiciones", "clave": "condiciones:" + parroquia, "nivel": cond["nivel"], **donde, "mm_1h": 0,
                             "veces": veces,
                             "texto": f"{parroquia} (brigada {brigada}) y alrededores: hay condiciones para que llueva en las próximas 2 horas. "
                                      f"Con condiciones así llovió {veces} veces.",
@@ -252,16 +252,36 @@ def evaluar(salida, capas, cfg, cuencas):
 
 
 def decidir(activas, estado, cfg, ahora):
-    """Elige que se envia: lo nuevo, lo que subio de nivel o lo que sigue activo despues de unas horas."""
-    enviar, nuevo_estado = [], {}
+    """Elige que se envia, sin repetir: solo lo nuevo o lo que sube de nivel.
+    Una situacion ya avisada no se repite mientras siga activa, ni si vuelve antes de 'no_repetir_horas' sin ella
+    (asi no llegan avisos repetidos cuando las condiciones van y vienen). Las situaciones se cuentan por parroquia, y
+    una parroquia que ya recibio un aviso preventivo (estaciones o satelite) no lo recibe otra vez por la otra via."""
+    pausa = cfg.get("no_repetir_horas", 3) * 3600
+    hora = ahora.isoformat(timespec="minutes")
+    visto = lambda v: dt.datetime.fromisoformat(v.get("visto", v["hora"]))
+    # se recuerdan los avisos aunque la situacion haya terminado, hasta 'no_repetir_horas' despues de la ultima vez que se vio
+    nuevo_estado = {k: v for k, v in estado.items() if (ahora - visto(v)).total_seconds() < pausa}
+    preventivas = {p for k, v in nuevo_estado.items() if k.split(":")[0] in ("condiciones", "satelite") for p in v.get("parroquias", [])}
+    enviar, ya = [], set()
     for a in activas:
-        prev = estado.get(a["clave"])
-        repetir = prev and (ahora - dt.datetime.fromisoformat(prev["hora"])).total_seconds() >= cfg["repetir_aviso_cada_horas"] * 3600
-        if not prev or a["nivel"] > prev["nivel"] or repetir:
-            enviar.append(a)
-            nuevo_estado[a["clave"]] = {"nivel": a["nivel"], "hora": ahora.isoformat(timespec="minutes")}
-        else:
-            nuevo_estado[a["clave"]] = prev
+        if a["clave"] in ya:
+            continue
+        ya.add(a["clave"])
+        parrs = a.get("parroquias") or [a.get("parroquia")]
+        prev = nuevo_estado.get(a["clave"])
+        if prev and a["nivel"] <= prev["nivel"]:
+            nuevo_estado[a["clave"]] = {**prev, "visto": hora}  # sigue activa: no se repite
+            continue
+        if a["tipo"] in ("condiciones", "satelite") and not prev:
+            nuevas = [p for p in parrs if p not in preventivas]
+            if not nuevas:
+                nuevo_estado[a["clave"]] = {"nivel": a["nivel"], "hora": hora, "visto": hora, "parroquias": parrs}
+                continue
+            if a["tipo"] == "satelite" and len(nuevas) < len(parrs):
+                a = {**a, "parroquias": nuevas, "texto": f"{', '.join(nuevas)}: nubes de tormenta acercándose, posible lluvia en la próxima hora."}
+            preventivas |= set(parrs)
+        enviar.append(a)
+        nuevo_estado[a["clave"]] = {"nivel": a["nivel"], "hora": hora, "visto": hora, "parroquias": parrs}
     return enviar, nuevo_estado
 
 
