@@ -25,7 +25,7 @@ import urllib.request
 
 CARPETA = os.path.dirname(os.path.abspath(__file__))
 REGISTRO = os.path.join(CARPETA, "registro_alertas.log")
-CREDITO = "Elaborado por: Diana Lozada Ramos"
+CREDITO = "Elaborado por: Ing. Amb. Diana E. Lozada Ramos – Analista de Evaluación y Seguimiento de Incendios y Emergencias Forestales"
 
 
 def leer(nombre, defecto=None):

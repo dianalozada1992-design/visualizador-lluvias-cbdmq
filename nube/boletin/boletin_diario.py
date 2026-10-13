@@ -31,7 +31,7 @@ from matplotlib.backends.backend_pdf import PdfPages
 CARPETA = os.path.dirname(os.path.abspath(__file__))
 BASE = os.path.dirname(CARPETA)
 SALIDA = os.path.join(CARPETA, "salidas")
-CREDITO = "Elaborado por: Diana Lozada Ramos"
+CREDITO = "Elaborado por: Ing. Amb. Diana E. Lozada Ramos – Analista de Evaluación y Seguimiento de Incendios y Emergencias Forestales"
 INICIO_NUMERACION = dt.date(2026, 10, 5)
 AZUL, AZUL_MEDIO, VERDE, VERDE_CLARO, GRIS = "#1f3f73", "#2f86c8", "#2e8b6f", "#a8dcae", "#9aa7b4"
 MESES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"]
@@ -124,7 +124,7 @@ def pronostico_del_dia(hoy):
 # ---------------------------------------------------------------- paginas
 def cabecera(fig, titulo, numero, hoy):
     fig.patches.append(plt.Rectangle((0, 0.955), 1, 0.045, transform=fig.transFigure, color=AZUL, zorder=0))
-    fig.text(0.04, 0.977, "CBDMQ · Dirección de Gestión de Riesgos", color="white", fontsize=9, va="center", weight="bold")
+    fig.text(0.04, 0.977, "CBDMQ · Ing. Amb. Diana E. Lozada Ramos", color="white", fontsize=9, va="center", weight="bold")
     fig.text(0.96, 0.977, f"Boletín N° {numero} · {hoy.day} de {MESES[hoy.month - 1]} de {hoy.year}", color="white", fontsize=9, va="center", ha="right")
     fig.text(0.05, 0.925, titulo, fontsize=13, weight="bold", color=AZUL, va="center")
     fig.text(0.5, 0.012, CREDITO, ha="center", fontsize=7.5, color=GRIS)
@@ -487,7 +487,7 @@ def portada(pdf, hoy, numero, resumen):
     fig = plt.figure(figsize=A4)
     fig.patches.append(plt.Rectangle((0, 0.8), 1, 0.2, transform=fig.transFigure, color=AZUL, zorder=0))
     fig.text(0.06, 0.95, "Cuerpo de Bomberos del Distrito Metropolitano de Quito", color="white", fontsize=10)
-    fig.text(0.06, 0.925, "Dirección de Gestión de Riesgos", color="#dbe7f5", fontsize=9)
+    fig.text(0.06, 0.925, "Ing. Amb. Diana E. Lozada Ramos – Analista de Evaluación y Seguimiento de Incendios y Emergencias Forestales", color="#dbe7f5", fontsize=8.5)
     fig.text(0.06, 0.865, "Boletín de lluvias y emergencias", color="white", fontsize=22, weight="bold")
     fig.text(0.06, 0.825, f"Boletín N° {numero}  ·  {DIAS[hoy.weekday()]} {hoy.day} de {MESES[hoy.month - 1]} de {hoy.year}", color="white", fontsize=11)
     fig.text(0.06, 0.76, "Resumen", fontsize=14, weight="bold", color=AZUL)

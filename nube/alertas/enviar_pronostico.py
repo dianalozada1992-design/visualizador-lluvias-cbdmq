@@ -70,7 +70,7 @@ def resumen(fecha):
         brigada = {f["properties"]["nombre"]: f["properties"]["brigada"] for f in capas["parroquias"]["features"]}
     except Exception:
         pass
-    lineas = [f"*CBDMQ - Gestión de Riesgos*\n*Pronóstico de lluvia* emitido el {DIAS[fecha.weekday()]} {fecha:%d/%m/%Y}"]
+    lineas = [f"*CBDMQ*\n*Pronóstico de lluvia* emitido el {DIAS[fecha.weekday()]} {fecha:%d/%m/%Y}"]
     if xlsx:
         libro = pd.ExcelFile(xlsx[-1])
         hojas = [h for h in libro.sheet_names if len(h) == 5 and h[2] == "-"]

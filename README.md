@@ -1,7 +1,7 @@
 # Visualizador de lluvias, ríos y emergencias – CBDMQ
 
-Dirección de Gestión de Riesgos del Cuerpo de Bomberos del Distrito Metropolitano de Quito.
-Elaborado por: **Diana Lozada Ramos**.
+Cuerpo de Bomberos del Distrito Metropolitano de Quito.
+Elaborado por: **Ing. Amb. Diana E. Lozada Ramos** – Analista de Evaluación y Seguimiento de Incendios y Emergencias Forestales.
 
 Este repositorio contiene **solo el programa**. No contiene claves ni datos internos: las claves están
 en los *secretos* de GitHub y los datos internos (coberturas de brigadas, emergencias, contactos de

@@ -75,8 +75,8 @@ def cuadro(img, cont, lineas_dmq, titulo):
         x = 0.03 + i * 0.158
         fig.patches.append(plt.Rectangle((x, 0.075), 0.03, 0.022, color=c, transform=fig.transFigure))
         fig.text(x + 0.035, 0.078, e, fontsize=6.6, color="#14294B")
-    fig.text(0.03, 0.035, "Tope de las nubes (°C): más frío = tormenta más fuerte · línea verde: DMQ\nFuente: NOAA GOES-19, banda 13 · Elaborado por: Ing. Diana Lozada",
-             fontsize=6.6, color="#4A5A70")
+    fig.text(0.03, 0.035, "Tope de las nubes (°C): más frío = tormenta más fuerte · línea verde: DMQ · Fuente: NOAA GOES-19, banda 13\nElaborado por: Ing. Amb. Diana E. Lozada Ramos – Analista de Evaluación y Seguimiento de Incendios y Emergencias Forestales",
+             fontsize=6, color="#4A5A70")
     buf = io.BytesIO()
     fig.savefig(buf, format="png", facecolor="#F4F6F2"); plt.close(fig)
     buf.seek(0)

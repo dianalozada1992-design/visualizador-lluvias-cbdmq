@@ -290,8 +290,9 @@ def dibujar_dia(dia, h, nubes, pts, geo_parr, geo_brig, previa_brig, nombres, sa
         ax.text(cx, 0.042, nom_i, ha="center", va="center", fontsize=11, color="#1b2631")
     ax.text(0.5, 0.012, f"Pronóstico con modelos {modelos_txt}, corregidos con 115 estaciones (CBDMQ, EPMAPS, REMMAQ). "
             f"Emitido {dt.datetime.now():%d/%m/%Y %H:%M}.  Confirmar en tiempo real con las estaciones: 10 / 20 / 30 mm en una hora.  "
-            "Dirección de Gestión de Riesgos - CBDMQ", ha="center", fontsize=10, color="#5d6d7e")
-    ax.text(0.945, 0.1, "Elaborado por: Diana Lozada Ramos", ha="right", va="center", fontsize=13, color=AZUL_CBDMQ, weight="bold")
+            "CBDMQ", ha="center", fontsize=10, color="#5d6d7e")
+    ax.text(0.945, 0.104, "Elaborado por: Ing. Amb. Diana E. Lozada Ramos", ha="right", va="center", fontsize=13, color=AZUL_CBDMQ, weight="bold")
+    ax.text(0.945, 0.088, "Analista de Evaluación y Seguimiento de Incendios y Emergencias Forestales", ha="right", va="center", fontsize=10, color=AZUL_CBDMQ)
     try:
         fig.savefig(salida_png, dpi=100)
     except PermissionError:   # la imagen anterior esta abierta: se guarda con la hora

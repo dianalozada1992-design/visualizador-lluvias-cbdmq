@@ -130,13 +130,13 @@ LEAME_CBDMQ = [
     "La estación Metropolitano tiene el sensor de viento sin funcionar (registra 0).",
     "Del 4 al 8 de octubre de 2025 las estaciones registraron cada segundo (período de instalación); en este archivo quedan solo las lecturas originales de cada 5 minutos.",
     "'Accumulated Rain' es un valor que LI-COR entrega solo en algunos registros; se deja tal como llega (la lluvia de cada intervalo está en 'Lluvia (mm)').",
-    "Una hoja por estación. Elaborado por: Diana Lozada Ramos - Dirección de Gestión de Riesgos, CBDMQ.",
+    "Una hoja por estación. Elaborado por: Ing. Amb. Diana E. Lozada Ramos – Analista de Evaluación y Seguimiento de Incendios y Emergencias Forestales, CBDMQ.",
 ]
 LEAME_EPMAPS = [
     "Datos hora por hora de las estaciones pluviométricas y climatológicas de EPMAPS (red paraMH2O).",
     "Lluvia: suma de la hora. Temperatura, humedad, radiación y presión: promedio de la hora. Viento: promedio y máximo de los registros de la hora, en km/h.",
     "Hora de Ecuador continental. Cada fila es la hora que empieza (por ejemplo 14:00 = de 14h00 a 14h59). Vacío = la estación no midió esa variable o no envió datos.",
-    "Fuente: plataforma pública paraMH2O (EPMAPS). Elaborado por: Diana Lozada Ramos - Dirección de Gestión de Riesgos, CBDMQ.",
+    "Fuente: plataforma pública paraMH2O (EPMAPS). Elaborado por: Ing. Amb. Diana E. Lozada Ramos – Analista de Evaluación y Seguimiento de Incendios y Emergencias Forestales, CBDMQ.",
 ]
 
 

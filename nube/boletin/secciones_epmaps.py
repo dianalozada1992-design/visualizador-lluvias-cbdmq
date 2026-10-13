@@ -49,10 +49,10 @@ def reparar(s):
 
 def cabecera_simple(fig, titulo, numero, hoy, meses):
     fig.patches.append(plt.Rectangle((0, 0.955), 1, 0.045, transform=fig.transFigure, color=AZUL, zorder=0))
-    fig.text(0.04, 0.977, "CBDMQ · Dirección de Gestión de Riesgos", color="white", fontsize=9, va="center", weight="bold")
+    fig.text(0.04, 0.977, "CBDMQ · Ing. Amb. Diana E. Lozada Ramos", color="white", fontsize=9, va="center", weight="bold")
     fig.text(0.96, 0.977, f"Boletín N° {numero} · {hoy.day} de {meses[hoy.month - 1]} de {hoy.year}", color="white", fontsize=9, va="center", ha="right")
     fig.text(0.05, 0.925, titulo, fontsize=13, weight="bold", color=AZUL, va="center")
-    fig.text(0.5, 0.012, "Elaborado por: Diana Lozada Ramos", ha="center", fontsize=7.5, color=GRIS)
+    fig.text(0.5, 0.012, "Elaborado por: Ing. Amb. Diana E. Lozada Ramos – Analista de Evaluación y Seguimiento de Incendios y Emergencias Forestales", ha="center", fontsize=7.5, color=GRIS)
 
 
 # ---------------------------------------------------------------- datos

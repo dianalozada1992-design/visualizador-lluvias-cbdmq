@@ -323,7 +323,7 @@ def main():
     with pd.ExcelWriter(base + ".xlsx") as xw:
         pd.DataFrame({"Boletín de pronóstico de lluvia - CBDMQ": [
             f"Emitido: {dt.datetime.now():%Y-%m-%d %H:%M}",
-            "Elaborado por: Diana Lozada Ramos",
+            "Elaborado por: Ing. Amb. Diana E. Lozada Ramos – Analista de Evaluación y Seguimiento de Incendios y Emergencias Forestales",
             f"Modelos: {', '.join(calib[m]['nombre'] for m in calib['conjunto']['modelos'])}, corregidos con las estaciones del DMQ (2024-2026).",
             f"Nivel según la lluvia pronosticada corregida en el día: Verde < {CORTES_MM[0]} mm, Amarillo {CORTES_MM[0]}-{CORTES_MM[1]} mm, "
             f"Naranja {CORTES_MM[1]}-{CORTES_MM[2]} mm, Rojo ≥ {CORTES_MM[2]} mm. En 2024-2026, por zona, eso correspondió a 34 %, 55 % y 60 % "
@@ -370,7 +370,7 @@ def main():
         np.atleast_1d(axs)[0].legend(fontsize=8, loc="lower left", title="Nivel")
         fig.suptitle(f"Pronóstico de lluvia por parroquia - DMQ   (emitido {dt.datetime.now():%d/%m/%Y %H:%M})", fontsize=13)
         fig.text(0.5, 0.02, f"Modelos {', '.join(calib[m]['nombre'] for m in calib['conjunto']['modelos'])} corregidos con estaciones CBDMQ, EPMAPS y REMMAQ. "
-                 "Confirmar en tiempo real con las estaciones: 10 / 20 / 30 mm en una hora.  Elaborado por: Diana Lozada Ramos", ha="center", fontsize=8)
+                 "Confirmar en tiempo real con las estaciones: 10 / 20 / 30 mm en una hora.  Elaborado por: Ing. Amb. Diana E. Lozada Ramos – Analista de Evaluación y Seguimiento de Incendios y Emergencias Forestales", ha="center", fontsize=8)
         pdf.savefig(fig); fig.savefig(base + ".png", dpi=150); plt.close(fig)
 
         fig, ax = plt.subplots(figsize=(11.7, 8.3)); ax.axis("off")

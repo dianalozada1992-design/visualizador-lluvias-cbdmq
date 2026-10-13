@@ -36,7 +36,7 @@ MESES, DIAS, fmt = bd.MESES, bd.DIAS, bd.fmt
 
 def cabecera(fig, titulo, ini, fin):
     fig.patches.append(plt.Rectangle((0, 0.955), 1, 0.045, transform=fig.transFigure, color=AZUL, zorder=0))
-    fig.text(0.04, 0.977, "CBDMQ · Dirección de Gestión de Riesgos", color="white", fontsize=9, va="center", weight="bold")
+    fig.text(0.04, 0.977, "CBDMQ · Ing. Amb. Diana E. Lozada Ramos", color="white", fontsize=9, va="center", weight="bold")
     fig.text(0.96, 0.977, f"Informe semanal · {ini:%d/%m} al {fin:%d/%m/%Y}", color="white", fontsize=9, va="center", ha="right")
     fig.text(0.05, 0.925, titulo, fontsize=13, weight="bold", color=AZUL, va="center")
     fig.text(0.5, 0.012, bd.CREDITO, ha="center", fontsize=7.5, color=GRIS)
@@ -250,7 +250,7 @@ def generar(lunes=None):
     fig = plt.figure(figsize=A4)
     fig.patches.append(plt.Rectangle((0, 0.8), 1, 0.2, transform=fig.transFigure, color=AZUL, zorder=0))
     fig.text(0.06, 0.95, "Cuerpo de Bomberos del Distrito Metropolitano de Quito", color="white", fontsize=10)
-    fig.text(0.06, 0.925, "Dirección de Gestión de Riesgos", color="#dbe7f5", fontsize=9)
+    fig.text(0.06, 0.925, "Ing. Amb. Diana E. Lozada Ramos – Analista de Evaluación y Seguimiento de Incendios y Emergencias Forestales", color="#dbe7f5", fontsize=8.5)
     fig.text(0.06, 0.865, "Informe semanal de lluvias y emergencias", color="white", fontsize=20, weight="bold")
     fig.text(0.06, 0.825, f"Semana del {DIAS[ini.weekday()]} {ini:%d/%m} al {DIAS[fin.weekday()]} {fin:%d/%m/%Y}", color="white", fontsize=11)
     fig.text(0.06, 0.76, "Resumen de la semana", fontsize=14, weight="bold", color=AZUL)

@@ -7,7 +7,7 @@ const CERRADO = `<!doctype html><html lang="es"><head><meta charset="utf-8"><met
 <div style="background:#fff;border:1px solid #d7dfea;border-radius:12px;padding:28px;max-width:440px;text-align:center">
 <div style="background:#1f3f73;color:#fff;font-weight:800;border-radius:8px;padding:8px 10px;display:inline-block">CBDMQ</div>
 <h1 style="font-size:20px;color:#1f3f73">Visualizador de lluvias: acceso restringido</h1>
-<p>Esta página es solo para personal autorizado de la Dirección de Gestión de Riesgos.</p>
+<p>Esta página es solo para personal autorizado del CBDMQ.</p>
 <p style="color:#5d6d7e;font-size:13px">Si necesita acceso, solicítelo a la administradora del visualizador.</p></div></body></html>`;
 
 export async function onRequest(ctx) {
