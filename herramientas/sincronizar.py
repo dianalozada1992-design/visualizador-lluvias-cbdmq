@@ -26,6 +26,8 @@ CODIGO = {
     "alertas/cuencas.json": "nube/alertas/cuencas.json",
     "alertas/condiciones.py": "nube/alertas/condiciones.py",
     "alertas/goes_satelite.py": "nube/alertas/goes_satelite.py",
+    "alertas/modelo_lluvia.py": "nube/alertas/modelo_lluvia.py",
+    "alertas/modelo_lluvia.json": "nube/alertas/modelo_lluvia.json",
     "alertas/goes_animacion.py": "nube/alertas/goes_animacion.py",
     "alertas/contornos_ecuador.json": "nube/alertas/contornos_ecuador.json",
     "alertas/condiciones_lluvia.json": "nube/alertas/condiciones_lluvia.json",

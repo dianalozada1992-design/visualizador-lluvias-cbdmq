@@ -185,7 +185,7 @@ def evaluar(salida, capas, cfg, cuencas):
                             "pista": f"{pista} en {s0['parroquia']}",
                             "texto": f"{', '.join(parrs)}: tormenta muy fuerte con posible granizo ({pista} en {s0['parroquia']}).",
                             "detalle": f"Satélite GOES-19 ({sat['hora'][11:]}): tope de nube de {fmt(m0)} °C; estación {s0['estacion']}."})
-    if sat.get("estaciones"):
+    if sat.get("estaciones") and rs.get("activo", True):
         lloviendo = {c["brigada"] for c in sat_cand if c["reciente"] and c["mm"] >= 1}
         por_brig = {}
         for c in sat_cand:
@@ -203,6 +203,17 @@ def evaluar(salida, capas, cfg, cuencas):
                             "tope_c": m0, "muy_fuerte": muy_fuerte,
                             "texto": f"{', '.join(parrs)}: nubes de tormenta acercándose, posible lluvia en la próxima hora.",
                             "detalle": f"Satélite GOES-19, imagen de las {sat['hora'][11:]}: tope de nube de {fmt(m0)} °C cerca de la estación {c0['estacion']}."})
+    # aviso preventivo con el modelo de aprendizaje automatico (reemplaza a la regla del satelite; opcion B elegida el 15/10/2026)
+    if cfg.get("modelo_lluvia", {}).get("activo", True):
+        try:
+            import modelo_lluvia
+            brig = [(f["properties"].get("nombre") or f["properties"].get("brigada"), f["geometry"]) for f in capas["brigadas"]["features"]]
+            brigada_de = lambda la, lo: next((n for n, g in brig if dentro(lo, la, g)), None)
+            avisos_m, probs_m = modelo_lluvia.evaluar(salida, capas, brigada_de, sat_cand)
+            activas += [a for a in avisos_m if a["brigada"] not in con_granizo]
+            salida["indice_modelo_lluvia"] = probs_m
+        except Exception as e:
+            anotar(f"Modelo de lluvia sin calcular: {str(e)[:120]}")
     # riesgo de crecida por microcuenca
     nombre_parr = {f["properties"]["id"]: f["properties"]["nombre"] for f in capas["parroquias"]["features"]}
     niveles = list(cfg["crecida_promedio_microcuenca_mm"].items())
@@ -268,7 +279,7 @@ def decidir(activas, estado, cfg, ahora):
     visto = lambda v: dt.datetime.fromisoformat(v.get("visto", v["hora"]))
     # se recuerdan los avisos aunque la situacion haya terminado, hasta 'no_repetir_horas' despues de la ultima vez que se vio
     nuevo_estado = {k: v for k, v in estado.items() if (ahora - visto(v)).total_seconds() < pausa}
-    preventivas = {p for k, v in nuevo_estado.items() if k.split(":")[0] in ("condiciones", "satelite") for p in v.get("parroquias", [])}
+    preventivas = {p for k, v in nuevo_estado.items() if k.split(":")[0] in ("condiciones", "satelite", "modelo") for p in v.get("parroquias", [])}
     enviar, ya = [], set()
     for a in activas:
         if a["clave"] in ya:
@@ -279,12 +290,12 @@ def decidir(activas, estado, cfg, ahora):
         if prev and a["nivel"] <= prev["nivel"]:
             nuevo_estado[a["clave"]] = {**prev, "visto": hora}  # sigue activa: no se repite
             continue
-        if a["tipo"] in ("condiciones", "satelite") and not prev:
+        if a["tipo"] in ("condiciones", "satelite", "modelo") and not prev:
             nuevas = [p for p in parrs if p not in preventivas]
             if not nuevas:
                 nuevo_estado[a["clave"]] = {"nivel": a["nivel"], "hora": hora, "visto": hora, "parroquias": parrs}
                 continue
-            if a["tipo"] == "satelite" and len(nuevas) < len(parrs):
+            if a["tipo"] in ("satelite", "modelo") and len(nuevas) < len(parrs):
                 a = {**a, "parroquias": nuevas, "texto": f"{', '.join(nuevas)}: nubes de tormenta acercándose, posible lluvia en la próxima hora."}
             preventivas |= set(parrs)
         enviar.append(a)
@@ -353,6 +364,12 @@ def armar_mensaje(items, ahora, cfg):
             lineas.append(f"   ({i['pista']})")
         lineas.append("👉 Vigilar techos, canaletas y sumideros; puede haber acumulación de granizo en vías.")
         partes.append("\n".join(lineas))
+    mo = [i for i in items if i["tipo"] == "modelo"]
+    if mo:
+        lineas = ["⛈️ *AVISO PREVENTIVO DE LLUVIA*", "Es probable que empiece a llover en las próximas 2 horas en:"]
+        for i in mo:
+            lineas.append(f"• {', '.join(i['parroquias'][:6])} · [📍 ver ubicación]({mapa_url(i)})")
+        partes.append("\n".join(lineas))
     sa = [i for i in items if i["tipo"] == "satelite"]
     if sa:
         lineas = ["⛈️ *AVISO PREVENTIVO DE LLUVIA (satélite)*",
@@ -417,9 +434,9 @@ def mapa_url(i):
 
 def enviar_ubicaciones(token, chat_id, items, maximo=3):
     """Punto en el mapa de Telegram por cada parroquia con aviso preventivo de lluvia (hasta 3)."""
-    lugares = sorted({i["parroquia"]: i for i in items if i["tipo"] in ("condiciones", "satelite", "granizo") and i.get("lat") is not None}.items())
+    lugares = sorted({i["parroquia"]: i for i in items if i["tipo"] in ("condiciones", "satelite", "granizo", "modelo") and i.get("lat") is not None}.items())
     for parr, i in lugares[:maximo]:
-        titulo = {"satelite": "Nubes de tormenta (satélite)", "granizo": "Posible granizo"}.get(i["tipo"], "Aviso preventivo de lluvia")
+        titulo = {"satelite": "Nubes de tormenta (satélite)", "granizo": "Posible granizo", "modelo": "Lluvia probable"}.get(i["tipo"], "Aviso preventivo de lluvia")
         datos = urllib.parse.urlencode({"chat_id": chat_id, "latitude": i["lat"], "longitude": i["lon"],
                                         "title": f"{titulo}: {parr}", "address": i.get("lugar", parr)}).encode()
         urllib.request.urlopen(f"https://api.telegram.org/bot{token}/sendVenue", datos, timeout=40).read()
@@ -503,7 +520,7 @@ def procesar(salida, capas, prueba=False):
             anotar(f"{len(items)} avisos nuevos, pero no hay destinos activos en alertas_contactos.json")
         for c in destinos:
             recibe = c.get("recibe", ["aviso", "alerta", "crecida", "condiciones"])
-            mios = [i for i in items if i["tipo"] in recibe or (i["tipo"] in ("satelite", "granizo") and ("condiciones" in recibe or "alerta" in recibe))]
+            mios = [i for i in items if i["tipo"] in recibe or (i["tipo"] in ("satelite", "granizo", "modelo") and ("condiciones" in recibe or "alerta" in recibe))]
             if not mios:
                 continue
             texto = armar_mensaje(mios, ahora, cfg)
@@ -514,7 +531,7 @@ def procesar(salida, capas, prueba=False):
                 try:
                     enviar(c, token, texto)
                     if c["_canal"] == "telegram":
-                        if any(i["tipo"] in ("satelite", "granizo") for i in mios):
+                        if any(i["tipo"] in ("satelite", "granizo", "modelo") for i in mios):
                             try:
                                 gif = gif or animacion_satelite()
                                 enviar_animacion(token, c["chat_id"], gif)

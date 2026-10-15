@@ -170,6 +170,29 @@ def resumen_rio(s, t, umbral):
             "serie": [[k.strftime("%Y-%m-%d %H:%M"), round(float(v), 3)] for k, v in s.resample("30min").mean().dropna().tail(96).items()]}
 
 
+def ventanas(series, t):
+    """Ultima hora (h1) y la anterior (h2) de cada variable, para el modelo de aprendizaje automatico de las alertas."""
+    out = {"h1": {}, "h2": {}}
+    for v, s in series.items():
+        if s is None or not len(s):
+            continue
+        for k, (a, b) in (("h1", (t - dt.timedelta(hours=1), t)), ("h2", (t - dt.timedelta(hours=2), t - dt.timedelta(hours=1)))):
+            x = s[(s.index > a) & (s.index <= b)].dropna()
+            if len(x):
+                out[k][v] = round(float(x.sum() if v == "lluvia" else x.mean()), 2)
+    return out
+
+
+def series_licor(datos):
+    tipos = {"Rain": "lluvia", "Temperature": "temp", "RH": "hr", "Solar Radiation": "rad", "Wind speed": "viento", "Air Velocity": "viento"}
+    s = {}
+    for x in datos:
+        k = tipos.get(x["sensor_measurement_type"])
+        if k and x["value"] is not None:
+            s.setdefault(k, {})[pd.Timestamp(x["timestamp"].replace("Z", "")) - pd.Timedelta(hours=5)] = x["value"]
+    return {k: pd.Series(v).sort_index() for k, v in s.items()}
+
+
 def telemetria(capas, t):
     ini = (t - dt.timedelta(hours=96))
     lluvia, rios = [], []
@@ -189,7 +212,8 @@ def telemetria(capas, t):
                 if nombre_var.lower().startswith(inicio):
                     clima[clave_c] = serie(v)
             if nombre_var.lower().startswith("precip"):
-                r = resumen_lluvia(serie(v), t)
+                clima["ll"] = serie(v)
+                r = resumen_lluvia(clima["ll"], t)
                 lluvia.append({**base, **(r or {"sin_datos": True})})
                 if r:
                     lluvia[-1]["_clima"] = clima
@@ -226,6 +250,8 @@ def telemetria(capas, t):
         c = x.get("_clima") or {}
         if c.get("t") is not None:
             x["caida_temp_15min"] = caida_temperatura(c["t"], t)
+        if c:
+            x["ml"] = ventanas({"lluvia": c.get("ll"), "temp": c.get("t"), "hr": c.get("hr")}, t)
         x.pop("_clima", None)
     return lluvia, rios
 
@@ -278,7 +304,8 @@ def cbdmq(capas, t):
                 except Exception:
                     pass
             out.append({**base, **(r or {"sin_datos": True}), "temperatura": round(temp[-1], 1) if temp else None, "condiciones": cond,
-                        "sensores": actuales_licor(d["data"], nombre, t), "caida_temp_15min": caida_temperatura(serie_t, t)})
+                        "sensores": actuales_licor(d["data"], nombre, t), "caida_temp_15min": caida_temperatura(serie_t, t),
+                        "ml": ventanas(series_licor(d["data"]), t)})
         except Exception:
             out.append({**base, "sin_datos": True})
     # si una estacion fallo, se usa su ultimo dato bueno (marcado como anterior)
@@ -358,17 +385,26 @@ def satelite(capas):
             valores, horas = v[None], [hora]
         np.savez_compressed(ruta, valor=valores, horas=np.array(horas), lat=img["lat"].astype(np.float32), lon=img["lon"].astype(np.float32))
         prev = dict(np.load(ruta, allow_pickle=False))
-    lat, lon, ult = prev["lat"], prev["lon"], prev["valor"][-1] / 10.0
-    ult = np.where(ult > 90, np.nan, ult)
-    est = {}
-    for red, lista in (("CBDMQ", capas["cbdmq"]), ("EPMAPS", [e for e in capas["telemetria"] if "Hidro" not in e["tipo"]])):
-        for e in lista:
-            d2 = (lat - e["lat"]) ** 2 + ((lon - e["lon"]) * np.cos(np.radians(e["lat"]))) ** 2
-            cerca = ult[d2 < (10 / 111) ** 2]
-            if cerca.size and np.isfinite(cerca).any():
-                est[f"{red}:{e['nombre']}"] = round(float(np.nanmin(cerca)), 1)
-    h_local = (dt.datetime.strptime(horas[-1], "%Y-%m-%d %H:%M") - dt.timedelta(hours=5)).strftime("%Y-%m-%d %H:%M")
-    return {"hora": h_local, "estaciones": est}
+    lat, lon = prev["lat"], prev["lon"]
+    horas_dt = [dt.datetime.strptime(str(h), "%Y-%m-%d %H:%M") for h in prev["horas"]]
+    # cuadro de hace una hora (para el enfriamiento de la nube que usa el modelo de aprendizaje automatico)
+    i_prev = min(range(len(horas_dt)), key=lambda i: abs((horas_dt[-1] - horas_dt[i]).total_seconds() - 3600))
+    tope_prev_ok = abs((horas_dt[-1] - horas_dt[i_prev]).total_seconds() - 3600) <= 900
+
+    def por_estacion(cuadro):
+        cuadro = np.where(cuadro > 90, np.nan, cuadro)
+        res = {}
+        for red, lista in (("CBDMQ", capas["cbdmq"]), ("EPMAPS", [e for e in capas["telemetria"] if "Hidro" not in e["tipo"]])):
+            for e in lista:
+                d2 = (lat - e["lat"]) ** 2 + ((lon - e["lon"]) * np.cos(np.radians(e["lat"]))) ** 2
+                cerca = cuadro[d2 < (10 / 111) ** 2]
+                if cerca.size and np.isfinite(cerca).any():
+                    res[f"{red}:{e['nombre']}"] = round(float(np.nanmin(cerca)), 1)
+        return res
+    est = por_estacion(prev["valor"][-1] / 10.0)
+    est_prev = por_estacion(prev["valor"][i_prev] / 10.0) if tope_prev_ok else {}
+    h_local = (horas_dt[-1] - dt.timedelta(hours=5)).strftime("%Y-%m-%d %H:%M")
+    return {"hora": h_local, "estaciones": est, "estaciones_hace1h": est_prev}
 
 
 def reverificar_lluvia(estaciones, minutos=30):
