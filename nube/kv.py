@@ -10,6 +10,7 @@ computadora, el archivo herramientas/cloudflare_local.json (no se sube al reposi
 import json
 import os
 import urllib.error
+import time
 import urllib.parse
 import urllib.request
 
@@ -31,8 +32,18 @@ def _pedir(metodo, ruta, datos=None, tipo="application/json"):
     tok, cuenta = credenciales()
     req = urllib.request.Request(f"{API}/accounts/{cuenta}{ruta}", data=datos, method=metodo,
                                  headers={"Authorization": "Bearer " + tok, "Content-Type": tipo})
-    with urllib.request.urlopen(req, timeout=120) as r:
-        return r.read()
+    # Cloudflare a veces responde con errores pasajeros (502/503/504) o se corta la conexion: se reintenta 3 veces
+    for intento in range(4):
+        try:
+            with urllib.request.urlopen(req, timeout=120) as r:
+                return r.read()
+        except urllib.error.HTTPError as e:
+            if e.code < 500 or intento == 3:
+                raise
+        except (urllib.error.URLError, TimeoutError):
+            if intento == 3:
+                raise
+        time.sleep(5 * (intento + 1))
 
 
 def id_almacen():
